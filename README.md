@@ -37,6 +37,8 @@ The steps for that described below:
 
 6. After that you need to follow the second method to access the data.
 
+! Please refer to [here](http://wiki.ros.org/openni_launch/Tutorials/BagRecordingPlayback) to more information.
+
 The second method which will end up with less collected data, will start by automatically saving the depth registered data 
 while robot moves.
 
@@ -54,5 +56,5 @@ while robot moves.
 
 
 
-! Please refer to [here](http://wiki.ros.org/openni_launch/Tutorials/BagRecordingPlayback) to more information.
+
 
