@@ -1,7 +1,8 @@
 # comp551-project
 
 
-# Kinect Recording
+# Kinect Recording/Playback
+
 * Recording
 1. Start roscore, and then run:
     roslaunch freenect_launch freenect.launch depth_registration:=true
