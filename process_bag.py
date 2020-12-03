@@ -1,12 +1,12 @@
 """
 Process the bag file to extract its content
-to given files into more readable format
+to pickle file
 COMP551 TEAM
 """
 
 import rospy
 import pickle
-
+import sensor_msgs.point_cloud2 as pc2
 
 output_folder = '_gitignore/bag_files/processsed/'
 output_file   = '001'
@@ -20,7 +20,7 @@ def callback(data):
 
 def listener():
     rospy.init_node('depth_registered_recorder')
-    rospy.Subscriber('/camera/depth_registered/points',,callback)
+    rospy.Subscriber('/camera/depth_registered/points',pc2,callback)
     rospy.spin()
 
 
