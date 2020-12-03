@@ -4,22 +4,26 @@ to given files into more readable format
 COMP551 TEAM
 """
 
-import rosbag
-
-def main():
-
-    bag_dir  = '_gitignore/bag_files/'
-    bag_name = '001.bag'
-    bag_full = bag_dir + bag_name
-
-    print('Processing: ', bag_full)
-    bag    = rosbag.Bag(bag_full)
-    topics = bag.get_type_and_topic_info()[1].keys()
-    types  = []
-    for i in range(0,len(bag.get_type_and_topic_info()[1].values())):
-        types.append(bag.get_type_and_topic_info()[1].values()[i][0])
-    print(topics)
-    print(types)
+import rospy
+import pickle
 
 
-main()
+output_folder = '_gitignore/bag_files/processsed/'
+output_file   = '001'
+output_full   = output_folder + output_file
+
+output = open(output_full,'wb')
+
+def callback(data):
+    print('Get data')
+    pickle.dump(data.data,output)
+
+def listener():
+    rospy.init_node('depth_registered_recorder')
+    rospy.Subscriber('/camera/depth_registered/points',,callback)
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    listener()
+
