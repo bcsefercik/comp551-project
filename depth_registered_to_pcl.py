@@ -6,13 +6,13 @@ from sensor_msgs.msg import PointCloud2, PointField
 
 
 input_folder = '_gitignore/depth_registered_files/'
-input_file   = '001'
+input_file   = 'moving_000'
 input_ext    = '.pickle'
 input_full  = input_folder + input_file + input_ext
 input_file   = open(input_full,'rb')
 
 output_folder = '_gitignore/pcd_files/'
-output_file   = '001'
+output_file   = 'data'
 output_ext    = '.pcd'
 
 

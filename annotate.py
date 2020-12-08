@@ -2,43 +2,74 @@ import open3d as o3d
 import numpy as np
 from scipy.spatial import distance_matrix
 from sklearn.metrics.pairwise import euclidean_distances
+import pickle as pkl
+import time
+
+import sensor_msgs.point_cloud2 as pc2
+import rospy
+import pickle
+
+from sensor_msgs.msg import PointCloud2, PointField
+
+
 
 
 class Annotator:
 
-    def __init__(self):
-        self.metrics = None
+    def __init__(self, ):
+        self.metrics     = None
+        self.bg_samples  = None
 
-    def classify(self, points_p, points_c, metric='distance_changed', removal_th=0.015):
+    def set_bg(self, samples):
+        '''
+            set bg samples of the annotator
+                
+            Note: some preprocessing steps on bg samples can be added here (e.g. adding aggregating frames)
+        '''
+        self.bg_samples = samples
+
+    def o3d_classify(self, bg_cloud, target_cloud, metric='distance_changed', removal_th=0.01):
         '''
             Classifies 3D points into arm and background points
         '''
+        dists = target_cloud.compute_point_cloud_distance(bg_cloud)
 
-        # Needs too much memory -> is not feasible
-        #dists = distance_matrix(points_c[i,:].reshape(1,-1), points_p)
+        dists = np.asarray(dists)
 
-        mask = np.ones(points_c.shape[0])
+        mask = dists > removal_th
 
-        for i in range(points_c.shape[0]):
-        
-            dists = euclidean_distances(points_c[i,:].reshape(1,-1), points_p)
-            
-            if dists.min() <= removal_th:
-                mask[i] = 0
-            
-        #      arm points    , background points
-        return points_c[mask], points_c[np.invert(mask)]
+        ind = np.where(mask == True)[0]
+
+        return ind
 
 
-pcd_path  = '../data/001_1.pcd'
+visualize = False
+
+pcd_path  = './_gitignore/pcd_files/bg_data/bg_1.pcd'
 pcd_obj_p = o3d.io.read_point_cloud(pcd_path)
-points_p  = np.asarray(pcd_obj_p.points)
 
-pcd_path  = '../data/001_3.pcd'
+pcd_path  = './_gitignore/pcd_files/data_samples/data_30.pcd'
 pcd_obj_c = o3d.io.read_point_cloud(pcd_path)
-points_c  = np.asarray(pcd_obj_c.points)
 
 ann       = Annotator()
 
-arm_points, bg_points = ann.classify(points_p,points_c)
+start = time.time()
+arm_ind  = ann.o3d_classify(pcd_obj_p ,pcd_obj_c)
+end = time.time()
+print("elapsed time: ", end - start)
+
+arm_cloud = pcd_obj_c.select_down_sample(arm_ind)
+bg_cloud  = pcd_obj_c.select_down_sample(arm_ind, invert=True)
+
+o3d.io.write_point_cloud("arm_cloud.pcd", arm_cloud, write_ascii=False, compressed=False, print_progress=True)
+o3d.io.write_point_cloud("bg_cloud.pcd", bg_cloud, write_ascii=False, compressed=False, print_progress=True)
+
+if visualize:
+    print("visualizing the arm points.")
+    o3d.visualization.draw_geometries([arm_cloud])
+
+    print("visualizing the background points.")
+    o3d.visualization.draw_geometries([bg_cloud])
+    raw_input()
+
 
