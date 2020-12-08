@@ -28,7 +28,7 @@ class Annotator:
         '''
         self.bg_samples = samples
 
-    def o3d_classify(self, bg_cloud, target_cloud, metric='distance_changed', removal_th=0.01):
+    def o3d_classify(self, bg_cloud, target_cloud, metric='distance_changed', removal_th=0.02):
         '''
             Classifies 3D points into arm and background points
         '''
@@ -43,7 +43,8 @@ class Annotator:
         return ind
 
 
-visualize = False
+visualize       = False
+remove_outliers = False
 
 pcd_path  = './_gitignore/pcd_files/bg_data/bg_1.pcd'
 pcd_obj_p = o3d.io.read_point_cloud(pcd_path)
@@ -60,6 +61,16 @@ print("elapsed time: ", end - start)
 
 arm_cloud = pcd_obj_c.select_down_sample(arm_ind)
 bg_cloud  = pcd_obj_c.select_down_sample(arm_ind, invert=True)
+
+
+if remove_outliers:
+    del pcd_obj_c,pcd_obj_p
+    cl, ind        = arm_cloud.remove_statistical_outlier(nb_neighbors=40,std_ratio=2.0)
+    arm_cloud_down = arm_cloud.select_down_sample(ind)
+
+    cl, ind        = bg_cloud.remove_statistical_outlier(nb_neighbors=40,std_ratio=2.0)
+    bg_cloud_donw  = arm_cloud.select_down_sample(ind)
+    
 
 o3d.io.write_point_cloud("arm_cloud.pcd", arm_cloud, write_ascii=False, compressed=False, print_progress=True)
 o3d.io.write_point_cloud("bg_cloud.pcd", bg_cloud, write_ascii=False, compressed=False, print_progress=True)
