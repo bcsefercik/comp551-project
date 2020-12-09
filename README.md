@@ -1,5 +1,9 @@
 # comp551-project
 
+# Combining Multiple PointClouds
+
+We can combine multiple pointcloud pcd files into one big pointcloud, unfortunetely the 
+file size become bigger. The code also allows you to downsample 
 
 # Kinect Recording/Playback
 
@@ -55,6 +59,15 @@ while robot moves.
 2. In order to make the pcl to numpy array please use pcl_to_numpy.py. 
 
 
-
+## TODO
+- [x] Pointgroup server setup
+- [ ] Data Collection
+    - [x] Data Recorder and conver codes
+    - [ ] Labeling Code
+      - [x] Background subtraction
+      - [x] Mesh reconstruction
+      - [ ] Mesh reconstruction using RGB data
+      - [ ] Background subtraction using multiple background samples
+  
 
 
