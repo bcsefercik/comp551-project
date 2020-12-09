@@ -1,17 +1,7 @@
 import open3d as o3d
 import numpy as np
-from scipy.spatial import distance_matrix
-from sklearn.metrics.pairwise import euclidean_distances
 import pickle as pkl
 import time
-
-import sensor_msgs.point_cloud2 as pc2
-import rospy
-import pickle
-
-from sensor_msgs.msg import PointCloud2, PointField
-
-
 
 
 class Annotator:
@@ -28,17 +18,19 @@ class Annotator:
         '''
         self.bg_samples = samples
 
-    def o3d_classify(self, bg_cloud, target_cloud, metric='distance_changed', removal_th=0.02):
+    def o3d_classify(self, bg_cloud, target_cloud, metric='distance_changed', removal_th=0.02, clip_depth=True, max_depth=1):
         '''
             Classifies 3D points into arm and background points
         '''
         dists = target_cloud.compute_point_cloud_distance(bg_cloud)
-
         dists = np.asarray(dists)
+        mask  = dists > removal_th
 
-        mask = dists > removal_th
-
-        ind = np.where(mask == True)[0]
+        if clip_depth:
+            points = np.asarray(target_cloud.points)
+            mask   = np.logical_and(points[:,2] < max_depth ,  mask)
+        
+        ind      = np.where(mask == True)[0]
 
         return ind
 
