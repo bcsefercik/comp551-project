@@ -1,6 +1,6 @@
 # comp551-project
 
-# Combining Multiple PointClouds
+# Combining Multiple PointClouds
 
 We can combine multiple pointcloud pcd files into one big pointcloud, unfortunetely the 
 file size become bigger. The code also allows you to downsample 
