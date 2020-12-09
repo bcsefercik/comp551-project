@@ -5,7 +5,10 @@ import time
 from matplotlib import pyplot as plt
 
 class Annotator:
-
+    '''
+        All the operations of annotaion is going to be integrated
+        to this class (e.g. background aggregation, background subtraction, reconstruction, ...)
+    '''
     def __init__(self, ):
         self.metrics     = None
         self.bg_samples  = None
@@ -36,7 +39,8 @@ class Annotator:
 
 
 
-def surface_reconstruct(pcd):
+def surface_reconstruct(pcd, visualize=False):
+
     print("Compute the normal of the point cloud")
     pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.05, max_nn=10))
     #pcd.orient_normals_consistent_tangent_plane(100)
@@ -45,9 +49,9 @@ def surface_reconstruct(pcd):
     with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
         mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=10)
     
-    #print(mesh)
-    
-    o3d.visualization.draw_geometries([mesh])
+    if visualize:
+        print('visualizing mesh.')
+        o3d.visualization.draw_geometries([mesh])
 
     print('visualize densities')
     densities = np.asarray(densities)
@@ -58,20 +62,29 @@ def surface_reconstruct(pcd):
     density_mesh.triangles = mesh.triangles
     density_mesh.triangle_normals = mesh.triangle_normals
     density_mesh.vertex_colors = o3d.utility.Vector3dVector(density_colors)
-    o3d.visualization.draw_geometries([density_mesh])
+
+
+    if visualize:
+        print('visualizing estimated densities.')
+        o3d.visualization.draw_geometries([density_mesh])
 
     print('remove low density vertices')
     vertices_to_remove = densities < np.quantile(densities, 0.08)
     mesh.remove_vertices_by_mask(vertices_to_remove)
 
-    #print(mesh)
-    
-    o3d.visualization.draw_geometries([mesh])
+
+    if visualize:
+        print('visualizing mesh after removing low dencity verticies.')
+        o3d.visualization.draw_geometries([mesh])
 
     mesh.compute_vertex_normals()
     
     pcd_new = mesh.sample_points_uniformly(number_of_points=200000)
-    
+
+    if visualize:
+        print('visualizing the sampled point cloud.')
+        o3d.visualization.draw_geometries([mesh])
+
     return pcd_new
 
 
