@@ -4,6 +4,9 @@ import pickle as pkl
 import copy
 import logging as log
 
+from numpy.random import default_rng
+
+
 
 
 def filter_mesh(mesh, iterations, visualize=False, verbose=False):
@@ -129,14 +132,14 @@ class Data:
 
         '''
         o3d.io.write_point_cloud(path, self.arm_rec_pcd , write_ascii=False, compressed=False, print_progress=True)
-    
+
 
     def write_arm_to_pcd(self, path="arm_cloud.pcd"):
         '''
 
         '''
         o3d.io.write_point_cloud(path, self.arm_pcd , write_ascii=False, compressed=False, print_progress=True)
-        
+
     def write_dataset_element(self, path):
         '''
 
@@ -179,15 +182,31 @@ class Annotator:
         for data in target_batch:
             data.arm_ind = self.distance_annotate(data.pcd, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
             data.update_arm_pcl_from_ind()
-        
+
         return target_batch
 
+
+    def split(self,target_batch,split_dirs = None,percentages = None):
+        """
+        Given directories it splits the current batch 
+        into train val and test splits
+        """
+        if split_dirs == None:
+            self.train_dir = split_dirs[0]
+            self.val_dir   = split_dirs[1]
+            self.test_dir  = split_dirs[2]
+        if percentages == None:
+            self.train_per = percentages[0]
+            self.val_per   = percentages[1]
+            self.test_per  = percentages[2]
+
+        print("Not implemented")
+        pass
 
     def annotate_single(self, target_data, bg_pcl=None):
         '''
         Args:
             param1 (Data)  : The data sample to annotate. 
-        
         '''
         if bg_pcl is None:
             bg_pcl = self.bg_pcl
