@@ -24,10 +24,17 @@ def load_pcd(file_name):
 def count_points(pcd_obj):
     return np.asarray(pcd_obj.points).shape[0]
 
-def update_frame(pcd_obj_1,pcd_obj_2):
+def update_frame(pcd_obj_1,pcd_obj_2,removal_th = 0.02):
+
+    dists             = np.asarray(pcd_obj_1.compute_point_cloud_distance(pcd_obj_2))
+    point_mask        = dists > removal_th
+    point_idx         = np.where(point_mask == True)[0]
+    pcd_obj_2_refined = pcd_obj_2.select_by_index(point_idx)
     pcd_combined = o3d.geometry.PointCloud()
-    pcd_combined = pcd_obj_1 + pcd_obj_2
+    pcd_combined = pcd_obj_1 + pcd_obj_2_refined
     return pcd_combined
+
+
 def find_added_percentage(n_initial,n_final):
     n_added    = n_final - n_initial
     percentage = (n_added * 100) / (n_initial)

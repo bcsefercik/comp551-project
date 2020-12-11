@@ -211,15 +211,15 @@ class Annotator:
             nparray: returns array of integer containing indices of the robot arm points.
         '''
 
-        dists     = np.asarray(target_cloud.compute_point_cloud_distance(bg_pcl))        
+        dists     = np.asarray(target_cloud.compute_point_cloud_distance(bg_pcl))
         arm_mask  = dists > removal_th
 
         if clip_depth:
             points    = np.asarray(target_cloud.points)
-            arm_mask  = np.logical_and(points[:,2] < max_depth ,  arm_mask)
-        
+            arm_mask  = np.logical_and(points[:,2] < max_depth , arm_mask)
+
         return  np.where(arm_mask == True)[0]
-        
+
 
 
 if __name__ == "__main__":
@@ -234,8 +234,7 @@ if __name__ == "__main__":
     log.info("Loading and annotating data.")
 
     ann         = Annotator(load_bg_from_file='./_gitignore/pcd_files/bg_data/bg_1.pcd')
-    
-   
+
     target_data = ann.annotate_single(target_data)
 
 
@@ -246,7 +245,7 @@ if __name__ == "__main__":
         log.info("visualizing the arm points.")
         o3d.visualization.draw_geometries([target_data.arm_pcd])
 
-        if reconstruct:    
+        if reconstruct:
             log.info("visualizing the reconstructed points.")
             o3d.visualization.draw_geometries([bg_cloud])
             
@@ -257,6 +256,6 @@ if __name__ == "__main__":
 
         log.info("Reconstructing the arm points.")
         target_data.surface_reconstruct_arm_pcd(visualize=False, verbose=True, sampling_method="uniform", filter_it=0)
-        
+
         log.info("Saving the arm PCD.")
         target_data.write_rec_arm_to_pcd("rec_arm_cloud.pcd")
