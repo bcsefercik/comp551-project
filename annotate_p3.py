@@ -162,19 +162,17 @@ class Data:
     def write_labels_np(self, path):
         '''
         '''
-        assert self.arm_ind     == None
-        assert self.bg_ind      == None
-        assert self.label_mask  == None
+        assert self.arm_ind.any()    != None
+        assert self.bg_ind.any()     != None
+        assert self.label_mask.any() != None
 
-        dic = {}
+        dic = {}    
         dic['arm_ind']    = self.arm_ind
         dic['bg_ind' ]    = self.bg_ind
         dic['label_mask'] = self.label_mask
 
         with open(path + '.pkl', 'wb') as f:
-            pickle.dump(dic, f, pickle.HIGHEST_PROTOCOL)
-
-
+            pkl.dump(dic, f, pkl.HIGHEST_PROTOCOL)
 
 
 
@@ -257,8 +255,9 @@ if __name__ == "__main__":
     visualize       = False
     remove_outliers = False
     reconstruct     = False
+    verbose         = True
 
-    target_data = Data('./_gitignore/pcd_files/data_samples/data_30.pcd')
+    target_data = Data('./_gitignore/pcd_files/data_samples/data_32.pcd')
     
     log.info("Loading and annotating data.")
 
@@ -285,7 +284,9 @@ if __name__ == "__main__":
     if reconstruct:
 
         log.info("Reconstructing the arm points.")
-        target_data.surface_reconstruct_arm_pcd(visualize=False, verbose=True, sampling_method="uniform", filter_it=0)
+        target_data.surface_reconstruct_arm_pcd(visualize=False, verbose=verbose, sampling_method="uniform", filter_it=0)
         
         log.info("Saving the arm PCD.")
         target_data.write_rec_arm_to_pcd("rec_arm_cloud.pcd")
+    
+    target_data.write_labels_np("label_001")
