@@ -277,12 +277,10 @@ if __name__ == "__main__":
     verbose         = True
 
     target_data = Data('./_gitignore/pcd_files/data_samples/data_32.pcd')
-    
     log.info("Loading and annotating data.")
 
-    ann         = Annotator(load_bg_from_file='./_gitignore/pcd_files/bg_data/bg_1.pcd')
-
-    target_data = ann.annotate_single(target_data)
+    ann         = Annotator(load_bg_from_file='_gitignore/pcd_files/unified/unified_background_000.pcd')
+    target_data = ann.annotate_batch(target_data)
 
 
     if remove_outliers:

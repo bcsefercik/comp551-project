@@ -187,31 +187,27 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 if __name__ == "__main__":
 
-    objs = []
     input_folder = '_gitignore/depth_registered_files/'
-    input_file   = 'background_000'
+    input_file   = 'moving_001'
     input_ext    = '.pickle'
     input_full  = input_folder + input_file + input_ext
     input_file   = open(input_full,'rb')
 
-    output_folder = '_gitignore/pcd_files/background_000/'
-    output_file   = 'background'
+    output_folder = '_gitignore/pcd_files/moving_001/'
+    output_file   = 'moving_001'
     output_ext    = '.pcd'
 
-
+    i = 1
     while True:
         try:
             point_cloud = pickle.load(input_file)
-            objs.append(point_cloud)
+            output_full = output_folder + output_file + '_' + str(i) + output_ext
+            print("Output: ", output_full)
+            pcl_obj = write_pcd(output_full, point_cloud, True)
+            del point_cloud
+            i = i+1
+
         except EOFError:
-            print("Starting transformation...")
+            print("Done...")
             break
-    i = 1
-
-
-
-    for obj in objs:
-        output_full = output_folder + output_file + '_' + str(i) + output_ext
-        pcl_obj = write_pcd(output_full, obj, True)
-        i = i+1
 
