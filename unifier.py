@@ -24,14 +24,16 @@ def load_pcd(file_name):
 def count_points(pcd_obj):
     return np.asarray(pcd_obj.points).shape[0]
 
-def update_frame(pcd_obj_1,pcd_obj_2,removal_th = 0.02):
+def update_frame(curr_background,next_background,removal_th = 0.02):
 
-    dists             = np.asarray(pcd_obj_1.compute_point_cloud_distance(pcd_obj_2))
-    point_mask        = dists > removal_th
-    point_idx         = np.where(point_mask == True)[0]
-    pcd_obj_2_refined = pcd_obj_2.select_by_index(point_idx)
-    pcd_combined = o3d.geometry.PointCloud()
-    pcd_combined = pcd_obj_1 + pcd_obj_2_refined
+    dists                   = np.asarray(next_background.compute_point_cloud_distance(curr_background))
+    point_mask              = dists > removal_th
+    point_idx               = np.where(point_mask == True)[0]
+    next_background_refined = next_background.select_by_index(point_idx)
+    pcd_combined = curr_background + next_background_refined
+    del curr_background
+    del next_background
+    del next_background_refined
     return pcd_combined
 
 
@@ -49,9 +51,9 @@ for i in range(1,len(file_names)):
     background = update_frame(background,next_frame)
     n_next     = count_points(background)
     print("Total Number of Points: ", n_next)
-    #percentages.append(find_added_percentage(n_initial,n_next))
+    percentages.append(find_added_percentage(n_initial,n_next))
     print("Currently: ", i, '/', str(len(file_names)-1) )
-#print(percentages)
+print(percentages)
 apply_downsampling = False
 
 if apply_downsampling == True:
