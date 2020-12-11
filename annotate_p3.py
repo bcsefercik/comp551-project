@@ -16,7 +16,14 @@ import pickle as pkl
 import copy
 import logging as log
 
+
+from os import listdir
+from os.path import isfile,isdir, join
+
+
 from numpy.random import default_rng
+
+
 
 
 
@@ -43,6 +50,14 @@ class Data:
         self.arm_pcd     = None
         self.arm_rec_pcd = None
         self.label_mask  = None
+
+
+    def convert_to_pointgroup(self):
+        '''
+        Converts the current data to pointgroup data 
+        '''
+        print('Not implemented')
+        pass
 
     def surface_reconstruct_arm_pcd(self, visualize=False, verbose=False, sampling_method='poisson_disk', filter_it=0):
         '''
@@ -151,16 +166,14 @@ class Data:
         '''
         o3d.io.write_point_cloud(path, self.arm_pcd , write_ascii=False, compressed=False, print_progress=True)
 
-    def write_dataset_element(self, path):
+    def write_pointgroup_element(self, data,path):
+        '''
+        Please refer to the pointgroup/data/alivev1_inst.py
         '''
 
-        '''
-        o3d.io.write_point_cloud(path, self.pcd , write_ascii=False, compressed=False, print_progress=True)
-
-        #NOT COMPLETED
-        # NEED TO WRITE THE INDICES
-
-        ## ONUR LOOK HERER PLZ
+        data = self.convert_to_pointgroup()
+        pickle.dump(data, open(path, "wb"))
+        del data
 
     def write_labels_np(self, path):
         '''
@@ -200,35 +213,25 @@ class Annotator:
         '''
         self.bg_samples = bg_data[0]
 
-    def annotate_batch(self, target_batch, bg_pcl=None):
-        '''
-        '''
-        if bg_pcl is None:
-            bg_pcl = self.bg_pcl
+    def annotate_batch(self, folder_name = None,output_dir = None,percentages = [0.6,0.2,0.2], bg_pcl=None):
 
-        for data in target_batch:
-            data.arm_ind, data.bg_ind, data.label_mask = self.distance_annotate(data.pcd, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
+        if bg_pcl is not None:
+            self.bg_pcl = bg_pcl
+
+        files    = [f for f in listdir(folder_name) if isfile(join(folder_name, f))]
+        n_sample = len(files)
+
+        samples = np.random.choice(3,n_sample,p=percentages)
+        int2str = ['train', 'val','test']
+        for i in range(n_sample):
+            data = Data(folder_name + files[i])
+            data.arm_ind, data.bg_ind, data.label_mask = self.distance_annotate(data.pcd, self.bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
             data.update_arm_pcl_from_ind()
+            output = output_dir + int2str[samples[i]] + '/' + files[i].strip('.pcd')
+            data.write_pointgroup_element(data,output)
+            del data
 
-        return target_batch
 
-
-    def split(self,target_batch,split_dirs = None,percentages = None):
-        """
-        Given directories it splits the current batch 
-        into train val and test splits
-        """
-        if split_dirs == None:
-            self.train_dir = split_dirs[0]
-            self.val_dir   = split_dirs[1]
-            self.test_dir  = split_dirs[2]
-        if percentages == None:
-            self.train_per = percentages[0]
-            self.val_per   = percentages[1]
-            self.test_per  = percentages[2]
-
-        print("Not implemented")
-        pass
 
     def annotate_single(self, target_data, bg_pcl=None):
         '''
@@ -265,7 +268,8 @@ class Annotator:
             arm_mask  = np.logical_and(points[:,2] < max_depth ,  arm_mask)
         
         return  np.where(arm_mask == True)[0], np.where(arm_mask == False)[0], arm_mask
-        
+
+
 
 
 if __name__ == "__main__":
@@ -276,11 +280,21 @@ if __name__ == "__main__":
     reconstruct     = False
     verbose         = True
 
-    target_data = Data('./_gitignore/pcd_files/data_samples/data_32.pcd')
+    file_dir    = '_gitignore/pcd_files/moving_001/'
+    isDirectory = isdir(file_dir)
+
+    if isDirectory:
+        ann         = Annotator(load_bg_from_file='_gitignore/pcd_files/unified/unified_background_000.pcd')
+        output_dir  = '_gitignore/pcd_files/pointgroup/'
+        ann.annotate_batch(folder_name = file_dir, output_dir = output_dir , percentages = [0.6,0.2,0.2])
+        exit
+
+    target_data = Data(file_dir)
+
     log.info("Loading and annotating data.")
 
     ann         = Annotator(load_bg_from_file='_gitignore/pcd_files/unified/unified_background_000.pcd')
-    target_data = ann.annotate_batch(target_data)
+    target_data = ann.annotate_single(target_data)
 
 
     if remove_outliers:
