@@ -1,9 +1,20 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+'''
+    annotate_p3.py: Data class and Annotator class for labeling data, storing, surface reconstruction, and filtering.
+
+    
+'''
+import sys
+assert sys.version_info[0] >= 3
+
+
 import open3d as o3d
 import numpy as np
 import pickle as pkl
 import copy
 import logging as log
-
 
 
 def filter_mesh(mesh, iterations, visualize=False, verbose=False):
@@ -17,7 +28,6 @@ def filter_mesh(mesh, iterations, visualize=False, verbose=False):
 
         return mesh_out
 
-
 class Data:
     '''
         A helper class to keep information about a sample of data and annotations provided by the annotator class.
@@ -26,8 +36,10 @@ class Data:
 
         self.pcd         = o3d.io.read_point_cloud(pcd_path)
         self.arm_ind     = None
+        self.bg_ind      = None
         self.arm_pcd     = None
         self.arm_rec_pcd = None
+        self.label_mask  = None
 
     def surface_reconstruct_arm_pcd(self, visualize=False, verbose=False, sampling_method='poisson_disk', filter_it=0):
         '''
@@ -111,7 +123,6 @@ class Data:
 
         if mode is "statistical":
             cl, ind   = self.pcd.remove_statistical_outlier(nb_neighbors=40,std_ratio=2.0)
-            
 
         elif mode is "radious":
             cl, ind   = self.pcd.remove_radius_outlier(nb_points=20, radius=0.01)
@@ -148,6 +159,24 @@ class Data:
 
         ## ONUR LOOK HERER PLZ
 
+    def write_labels_np(self, path):
+        '''
+        '''
+        assert self.arm_ind     == None
+        assert self.bg_ind      == None
+        assert self.label_mask  == None
+
+        dic = {}
+        dic['arm_ind']    = self.arm_ind
+        dic['bg_ind' ]    = self.bg_ind
+        dic['label_mask'] = self.label_mask
+
+        with open(path + '.pkl', 'wb') as f:
+            pickle.dump(dic, f, pickle.HIGHEST_PROTOCOL)
+
+
+
+
 
 
 class Annotator:
@@ -177,7 +206,7 @@ class Annotator:
             bg_pcl = self.bg_pcl
 
         for data in target_batch:
-            data.arm_ind = self.distance_annotate(data.pcd, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
+            data.arm_ind, data.bg_ind, data.label_mask = self.distance_annotate(data.pcd, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
             data.update_arm_pcl_from_ind()
         
         return target_batch
@@ -192,7 +221,7 @@ class Annotator:
         if bg_pcl is None:
             bg_pcl = self.bg_pcl
         
-        target_data.arm_ind = self.distance_annotate(target_data.pcd, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
+        target_data.arm_ind, target_data.bg_ind, target_data.label_mask = self.distance_annotate(target_data.pcd, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
         target_data.update_arm_pcl_from_ind()
 
         return target_data
@@ -218,7 +247,7 @@ class Annotator:
             points    = np.asarray(target_cloud.points)
             arm_mask  = np.logical_and(points[:,2] < max_depth ,  arm_mask)
         
-        return  np.where(arm_mask == True)[0]
+        return  np.where(arm_mask == True)[0], np.where(arm_mask == False)[0], arm_mask
         
 
 
