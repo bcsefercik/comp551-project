@@ -1,6 +1,6 @@
 # Specific folders
 _gitignore
-
+PointGroup/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
