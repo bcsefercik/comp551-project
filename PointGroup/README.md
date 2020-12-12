@@ -4,7 +4,7 @@
 
 conda activate pointgroup
 
-## Train 
+## Train
 
 Use train.py
 
