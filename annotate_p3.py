@@ -15,8 +15,8 @@ import numpy as np
 import pickle as pkl
 import copy
 import logging as log
-
-
+import sklearn.preprocessing as preprocessing
+import pickle
 from os import listdir
 from os.path import isfile,isdir, join
 
@@ -52,12 +52,20 @@ class Data:
         self.label_mask  = None
 
 
+
     def convert_to_pointgroup(self):
         '''
         Converts the current data to pointgroup data 
         '''
-        print('Not implemented')
-        pass
+        xyz            = np.asarray(self.pcd.points)
+        rgb            = np.asarray(self.pcd.colors)
+        rgb[:,0]       = preprocessing.minmax_scale(rgb[:,0], feature_range = (-1,1), axis = 0)
+        rgb[:,1]       = preprocessing.minmax_scale(rgb[:,1], feature_range = (-1,1), axis = 0)
+        rgb[:,2]       = preprocessing.minmax_scale(rgb[:,2], feature_range = (-1,1), axis = 0)
+        label          = np.zeros(len(self.pcd.points))
+        label[self.arm_ind] = 1
+        instance_label = np.zeros(len(self.pcd.points))
+        return [xyz,rgb,label,instance_label]
 
     def surface_reconstruct_arm_pcd(self, visualize=False, verbose=False, sampling_method='poisson_disk', filter_it=0):
         '''
@@ -172,7 +180,7 @@ class Data:
         '''
 
         data = self.convert_to_pointgroup()
-        pickle.dump(data, open(path, "wb"))
+        pickle.dump(data, open(path + '.pickle', "wb"))
         del data
 
     def write_labels_np(self, path):
@@ -224,6 +232,7 @@ class Annotator:
         samples = np.random.choice(3,n_sample,p=percentages)
         int2str = ['train', 'val','test']
         for i in range(n_sample):
+            print('Sample no: ', i)
             data = Data(folder_name + files[i])
             data.arm_ind, data.bg_ind, data.label_mask = self.distance_annotate(data.pcd, self.bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
             data.update_arm_pcl_from_ind()
@@ -285,9 +294,9 @@ if __name__ == "__main__":
 
     if isDirectory:
         ann         = Annotator(load_bg_from_file='_gitignore/pcd_files/unified/unified_background_000.pcd')
-        output_dir  = '_gitignore/pcd_files/pointgroup/'
+        output_dir  = '_gitignore/pickle_files/pointgroup/'
         ann.annotate_batch(folder_name = file_dir, output_dir = output_dir , percentages = [0.6,0.2,0.2])
-        exit
+        sys.exit()
 
     target_data = Data(file_dir)
 
