@@ -1,4 +1,4 @@
-# ALIVE LAB SETUP
+# ALIVE LAB SETUP
 
 ## Environment
 
@@ -6,17 +6,19 @@ conda activate pointgroup
 
 ## Train 
 
-train.py
+Use train.py
 
 ## Tensorboard
 
-Run this on the pointgroup main directory:
-tensorboard --logdir exp/scannetv2/pointgroup/pointgroup_default_scannet/
+1. Run this on the pointgroup main directory:
 
-Run this in your PC
-ssh -N -f -L localhost:9001:localhost:6006 <username>@172.20.17.245
+    tensorboard --logdir exp/scannetv2/pointgroup/pointgroup_default_scannet/
 
-Go to your browser and visit localhost:9001
+2. Run this in your PC
+
+    ssh -N -f -L localhost:9001:localhost:6006 <username>@172.20.17.245
+
+3. Go to your browser and visit localhost:9001
 
 
 # PointGroup
