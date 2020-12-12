@@ -16,7 +16,7 @@ Use train.py
 
 2. Run this in your PC
 
-    ssh -N -f -L localhost:9001:localhost:6006 <username>@172.20.17.245
+    ssh -N -f -L localhost:9001:localhost:6006 username@172.20.17.245
 
 3. Go to your browser and visit localhost:9001
 
