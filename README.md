@@ -1,5 +1,9 @@
 # comp551-project
 
+# PointGroup
+
+Please refer to the readme inside the pointgroup
+
 # Combining Multiple PointClouds
 
 We can combine multiple pointcloud pcd files into one big pointcloud, unfortunetely the 
