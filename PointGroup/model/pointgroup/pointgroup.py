@@ -280,11 +280,11 @@ class PointGroup(nn.Module):
 
         if(epoch > self.prepare_epochs):
             #### get prooposal clusters
-            object_idxs = torch.nonzero(semantic_preds > 1).view(-1)
+            object_idxs = torch.nonzero(semantic_preds > -1).view(-1)
 
             batch_idxs_ = batch_idxs[object_idxs]
             batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
-            coords_ = coords[object_idxs]
+            coords_ = coords[object_idxs] #Here
             pt_offsets_ = pt_offsets[object_idxs]
 
             semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
@@ -378,7 +378,7 @@ def model_fn_decorator(test=False):
         v2p_map = batch['v2p_map'].cuda()                      # (M, 1 + maxActive), int, cuda
 
         coords_float = batch['locs_float'].cuda()              # (N, 3), float32, cuda
-        feats = batch['feats'].cuda()                          # (N, C), float32, cuda
+        feats = batch['feats'].cuda().float()                  # (N, C), float32, cuda
         labels = batch['labels'].cuda()                        # (N), long, cuda
         instance_labels = batch['instance_labels'].cuda()      # (N), long, cuda, 0~total_nInst, -100
 

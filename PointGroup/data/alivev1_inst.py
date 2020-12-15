@@ -36,7 +36,7 @@ class Dataset:
 
 
     def trainLoader(self):
-        mypath    = '/home/onurberk/PointGroup/dataset/alivev1/train/'
+        mypath    = '/home/onurberk/comp551-project/PointGroup/dataset/alivev1/train/'
         self.train_path = mypath
         self.train_file_names = onlyfiles = [f for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f))]
         #self.train_files = [torch.load(i) for i in train_file_names]
@@ -220,7 +220,7 @@ class Dataset:
 
         locs = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
         #locs_float = torch.cat(locs_float, 0).to(torch.float64)  # float (N, 3)
-        locs_float = torch.cat(locs_float, 0).to(torch.float64)  # float (N, 3)
+        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
 
         feats = torch.cat(feats, 0)                              # float (N, C)
         labels = torch.cat(labels, 0).long()                     # long (N)

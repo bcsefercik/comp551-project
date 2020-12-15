@@ -9,7 +9,7 @@ DATA:
   dataset: scannetv2
   filename_suffix: _inst_nostuff.pth
 
-  classes: 20
+  classes: 2
   ignore_label: -100
 
   input_channel: 3
@@ -57,7 +57,7 @@ GROUP:
   cluster_shift_meanActive: 300
   cluster_npoint_thre: 50
 
-  prepare_epochs: 128
+  prepare_epochs: 10 #prepare_epochs: 128
 
 TEST:
   split: val

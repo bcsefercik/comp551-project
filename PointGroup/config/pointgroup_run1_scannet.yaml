@@ -9,12 +9,12 @@ DATA:
   dataset: scannetv2
   filename_suffix: _inst_nostuff.pth
 
-  classes: 20
+  classes: 2
   ignore_label: -100
 
   input_channel: 3
   scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
-  batch_size: 4
+  batch_size: 2
   full_scale: [128, 512]
   max_npoint: 250000
   mode: 4 # 4=mean
@@ -57,7 +57,7 @@ GROUP:
   cluster_shift_meanActive: 300
   cluster_npoint_thre: 50
 
-  prepare_epochs: 128
+  prepare_epochs: 8 #prepare_epochs: 128
 
 TEST:
   split: val
