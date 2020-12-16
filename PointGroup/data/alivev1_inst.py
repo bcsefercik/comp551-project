@@ -27,6 +27,7 @@ class Dataset:
         self.scale           = cfg.scale
         self.max_npoint      = cfg.max_npoint
         self.mode            = cfg.mode
+        self.file_names      = {}
         #print(cfg)
 
         if test:
@@ -36,37 +37,29 @@ class Dataset:
 
 
     def trainLoader(self):
-        mypath    = '/home/onurberk/comp551-project/PointGroup/dataset/alivev1/train/'
-        self.train_path = mypath
-        self.train_file_names = onlyfiles = [f for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f))]
-        #self.train_files = [torch.load(i) for i in train_file_names]
-        #logger.info('Training samples: {}'.format(len(self.train_files)))
-        train_set = list(range(len(self.train_file_names)))
+        self.file_names['train'] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
+        train_set = list(range(len(self.file_names['train'])))
         self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.trainMerge, num_workers=self.train_workers,
                                             shuffle=True, sampler=None, drop_last=True, pin_memory=True)
 
-    """
+
+
+
     def valLoader(self):
-        val_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix)))
-        self.val_files = [torch.load(i) for i in val_file_names]
+        self.file_names['val'] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix)))
 
-        logger.info('Validation samples: {}'.format(len(self.val_files)))
-
-        val_set = list(range(len(self.val_files)))
+        val_set = list(range(len(self.file_names['val'])))
         self.val_data_loader = DataLoader(val_set, batch_size=self.batch_size, collate_fn=self.valMerge, num_workers=self.val_workers,
                                           shuffle=False, drop_last=False, pin_memory=True)
-    """
-    """
+
+
+
     def testLoader(self):
-        self.test_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix)))
-        self.test_files = [torch.load(i) for i in self.test_file_names]
-
-        logger.info('Testing samples ({}): {}'.format(self.test_split, len(self.test_files)))
-
-        test_set = list(np.arange(len(self.test_files)))
+        self.file_names['test'] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix)))
+        test_set = list(np.arange(len(self.file_names['test'])))
         self.test_data_loader = DataLoader(test_set, batch_size=1, collate_fn=self.testMerge, num_workers=self.test_workers,
                                            shuffle=False, drop_last=False, pin_memory=True)
-    """
+
     #Elastic distortion
     def elastic(self, x, gran, mag):
         blur0 = np.ones((3, 1, 1)).astype('float32') / 3
@@ -157,8 +150,9 @@ class Dataset:
             j += 1
         return instance_label
 
-    def get_data(self,id):
-        curr_file_name = self.train_file_names[id]
+    def get_data(self,id,data_type):
+        curr_file_name = self.self.file_names[data_type][id]
+
         with open(self.train_path + curr_file_name, 'rb') as f:
             x = pickle.load(f)
             return x
@@ -175,7 +169,7 @@ class Dataset:
         batch_offsets     = [0]
         total_inst_num    = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = self.get_data(idx)
+            xyz_origin, rgb, label, instance_label = self.get_data(idx,'train')
 
             ### jitter / flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, True, True, True)
@@ -254,7 +248,7 @@ class Dataset:
 
         total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = self.val_files[idx]
+            xyz_origin, rgb, label, instance_label = self.get_data(idx,'val')
 
             ### flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, False, True, True)
@@ -326,9 +320,10 @@ class Dataset:
 
         for i, idx in enumerate(id):
             if self.test_split == 'val':
-                xyz_origin, rgb, label, instance_label = self.test_files[idx]
+                xyz_origin, rgb, label, instance_label = self.get_data(idx,'val')
+
             elif self.test_split == 'test':
-                xyz_origin, rgb = self.test_files[idx]
+                xyz_origin, rgb, label, instance_label = self.get_data(idx,'test')
             else:
                 print("Wrong test split: {}!".format(self.test_split))
                 exit(0)

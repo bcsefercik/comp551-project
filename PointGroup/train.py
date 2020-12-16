@@ -163,8 +163,6 @@ if __name__ == '__main__':
     ##### dataset
 
 
-    cfg.dataset = 'alivev1'
-    data_name   =  'alive'
     if cfg.dataset == 'scannetv2':
         if data_name == 'scannet':
             import data.scannetv2_inst
