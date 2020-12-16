@@ -67,11 +67,10 @@ while robot moves.
 - [x] Pointgroup server setup
 - [ ] Data Collection
     - [x] Data Recorder and conver codes
-    - [ ] Labeling Code
+    - [x] Labeling Code
       - [x] Background subtraction
       - [x] Mesh reconstruction
-      - [ ] Mesh reconstruction using RGB data
-      - [ ] Background subtraction using multiple background samples
+
   
 
 
