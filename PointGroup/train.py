@@ -91,6 +91,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
     for k in am_dict.keys():
         if k in visual_dict.keys():
             writer.add_scalar(k+'_train', am_dict[k].avg, epoch)
+    writer.flush()
 
 
 def eval_epoch(val_loader, model, model_fn, epoch):
@@ -120,6 +121,7 @@ def eval_epoch(val_loader, model, model_fn, epoch):
         for k in am_dict.keys():
             if k in visual_dict.keys():
                 writer.add_scalar(k + '_eval', am_dict[k].avg, epoch)
+        writer.flush()
 
 
 if __name__ == '__main__':
@@ -179,6 +181,7 @@ if __name__ == '__main__':
             import data.alivev1_inst
             dataset = data.alivev1_inst.Dataset()
             dataset.trainLoader()
+            dataset.valLoader()
         else:
             print("Error: no data loader - " + data_name)
             exit(0)
@@ -192,5 +195,5 @@ if __name__ == '__main__':
     for epoch in range(start_epoch, cfg.epochs + 1):
         train_epoch(dataset.train_data_loader, model, model_fn, optimizer, epoch)
 
-        #if utils.is_multiple(epoch, cfg.save_freq) or utils.is_power2(epoch):
-        #    eval_epoch(dataset.val_data_loader, model, model_fn, epoch)
+        if utils.is_multiple(epoch, cfg.save_freq) or utils.is_power2(epoch):
+            eval_epoch(dataset.val_data_loader, model, model_fn, epoch)

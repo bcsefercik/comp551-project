@@ -151,9 +151,9 @@ class Dataset:
         return instance_label
 
     def get_data(self,id,data_type):
-        curr_file_name = self.self.file_names[data_type][id]
+        curr_file_name = self.file_names[data_type][id]
 
-        with open(self.train_path + curr_file_name, 'rb') as f:
+        with open(curr_file_name, 'rb') as f:
             x = pickle.load(f)
             return x
 
@@ -323,7 +323,7 @@ class Dataset:
                 xyz_origin, rgb, label, instance_label = self.get_data(idx,'val')
 
             elif self.test_split == 'test':
-                xyz_origin, rgb, label, instance_label = self.get_data(idx,'test')
+                xyz_origin, rgb, _,__ = self.get_data(idx,'test')
             else:
                 print("Wrong test split: {}!".format(self.test_split))
                 exit(0)
