@@ -28,6 +28,10 @@ now it can work with both  3.7, and 3.8 version of the python. Please do not mod
 if file io error occurs but modify your own data paths because you are not the only one that use 
 the code.
 
+## Testing
+
+Please use the test.py
+
 # PointGroup
 ## PointGroup: Dual-Set Point Grouping for 3D Instance Segmentation (CVPR2020)
 ![overview](https://github.com/llijiang/PointGroup/blob/master/doc/overview.png)
