@@ -4,6 +4,7 @@ PointGroup/dataset/
 PointGroup/exp/
 PointGroup/lib/
 
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -115,6 +116,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+venv_python3/
 
 # Spyder project settings
 .spyderproject

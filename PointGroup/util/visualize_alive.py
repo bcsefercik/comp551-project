@@ -41,7 +41,7 @@ def visualize_pts_rgb(fig, pts, rgb, scale=0.02):
 
     scalars = np.arange(pxs.__len__())
     points = mlab.points3d(pxs, pys, pzs,  scalars,
-                           mode='sphere',  # point sphere
+                           mode='point',  # point sphere
                            # colormap='Accent',
                            scale_mode='vector',
                            scale_factor=scale,
@@ -78,7 +78,6 @@ def get_coords_color(opt):
         rgb = label_rgb
 
     elif (opt.task == 'instance_gt'):
-        assert opt.room_split != 'test'
         inst_label = inst_label.astype(np.int)
         print("Instance number: {}".format(inst_label.max() + 1))
         inst_label_rgb = np.zeros(rgb.shape)
@@ -87,8 +86,7 @@ def get_coords_color(opt):
         rgb = inst_label_rgb
 
     elif (opt.task == 'semantic_pred'):
-        assert opt.room_split != 'train'
-        semantic_file = os.path.join(opt.result_root, opt.room_split, 'semantic', opt.room_name + '.npy')
+        semantic_file = os.path.join(opt.result_root,opt.dataset, 'semantic', opt.file_name + '.npy')
         assert os.path.isfile(semantic_file), 'No semantic result - {}.'.format(semantic_file)
         label_pred = np.load(semantic_file).astype(np.int)  # 0~19
         label_pred_rgb = np.array(itemgetter(*SEMANTIC_NAMES[label_pred])(CLASS_COLOR))
@@ -124,13 +122,13 @@ def get_coords_color(opt):
 ""
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_root', help='path to the input dataset files', default='../dataset/alivev1')
-    #parser.add_argument('--result_root', help='path to the predicted results', default='exp/scannetv2/pointgroup/pointgroup_run1_scannet/result/epoch384_nmst0.3_scoret0.09_npointt100')
+    parser.add_argument('--data_root', help='path to the input dataset files', default='dataset/alivev1')
+    parser.add_argument('--result_root', help='path to the predicted results', default='exp/alivev1/pointgroup/pointgroup_alive/trial/result/epoch30_nmst0.3_scoret0.09_npointt100')
     #parser.add_argument('--room_name', help='room_name', default='scene0000_00')
     #parser.add_argument('--room_split', help='train / val / test', default='train')
-    parser.add_argument('--task', help='input / semantic_gt / semantic_pred / instance_gt / instance_pred', default='input')
-    parser.add_argument('--dataset', help='train/val/test', default='train')
-    parser.add_argument('--file_name', help='enter the file name', default='moving_001_47')
+    parser.add_argument('--task', help='input / semantic_gt / semantic_pred / instance_gt / instance_pred', default='semantic_pred')
+    parser.add_argument('--dataset', help='train/val/test', default='val')
+    parser.add_argument('--file_name', help='enter the file name', default='moving_001_52')
     opt = parser.parse_args()
 
     xyz, rgb = get_coords_color(opt)
