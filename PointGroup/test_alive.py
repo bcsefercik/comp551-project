@@ -18,6 +18,7 @@ import util.eval as eval
 def init():
     global result_dir
     result_dir = os.path.join(cfg.exp_path, 'result', 'epoch{}_nmst{}_scoret{}_npointt{}'.format(cfg.test_epoch, cfg.TEST_NMS_THRESH, cfg.TEST_SCORE_THRESH, cfg.TEST_NPOINT_THRESH), cfg.split)
+    print("Saving dir: ", result_dir)
     backup_dir = os.path.join(result_dir, 'backup_files')
     os.makedirs(backup_dir, exist_ok=True)
     os.makedirs(os.path.join(result_dir, 'predicted_masks'), exist_ok=True)
@@ -45,6 +46,7 @@ def test(model, model_fn, data_name, epoch):
             from data.scannetv2_inst import Dataset
             dataset = Dataset(test=True)
             dataset.testLoader()
+            dataset.valLoader()
         else:
             print("Error: no data loader - " + data_name)
             exit(0)
@@ -67,8 +69,7 @@ def test(model, model_fn, data_name, epoch):
         matches = {}
         for i, batch in enumerate(dataloader):
             N = batch['feats'].shape[0]
-            test_scene_name = dataset.file_names['test'][int(batch['id'][0])].split('/')[-1][:12]
-
+            test_scene_name = dataset.file_names[cfg.split][int(batch['id'][0])].split('/')[-1].strip('.pickle')
             start1 = time.time()
             preds = model_fn(batch, model, epoch)
             end1 = time.time() - start1
@@ -122,6 +123,7 @@ def test(model, model_fn, data_name, epoch):
                 nclusters = clusters.shape[0]
 
                 ##### prepare for evaluation
+                cfg.eval = False
                 if cfg.eval:
                     pred_info = {}
                     pred_info['conf'] = cluster_scores.cpu().numpy()
@@ -164,7 +166,7 @@ def test(model, model_fn, data_name, epoch):
             start = time.time()
 
             ##### print
-            logger.info("instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(batch['id'][0] + 1, len(dataset.test_files), N, nclusters, end, end1, end3))
+            logger.info("instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(batch['id'][0] + 1, len(dataset.file_names[cfg.split]), N, nclusters, end, end1, end3))
 
         ##### evaluation
         if cfg.eval:

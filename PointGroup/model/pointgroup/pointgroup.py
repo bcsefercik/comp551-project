@@ -336,7 +336,7 @@ def model_fn_decorator(test=False):
         v2p_map = batch['v2p_map'].cuda()          # (M, 1 + maxActive), int, cuda
 
         coords_float = batch['locs_float'].cuda()  # (N, 3), float32, cuda
-        feats = batch['feats'].cuda()              # (N, C), float32, cuda
+        feats = batch['feats'].cuda().float()              # (N, C), float32, cuda
 
         batch_offsets = batch['offsets'].cuda()    # (B + 1), int, cuda
 

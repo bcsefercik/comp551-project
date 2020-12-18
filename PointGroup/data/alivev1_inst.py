@@ -55,8 +55,8 @@ class Dataset:
 
 
     def testLoader(self):
-        self.file_names['test'] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix)))
-        test_set = list(np.arange(len(self.file_names['test'])))
+        self.file_names[self.test_split] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix)))
+        test_set = list(np.arange(len(self.file_names[self.test_split])))
         self.test_data_loader = DataLoader(test_set, batch_size=1, collate_fn=self.testMerge, num_workers=self.test_workers,
                                            shuffle=False, drop_last=False, pin_memory=True)
 
