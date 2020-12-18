@@ -59,6 +59,7 @@ def get_data(self,id,data_type):
 
 def get_coords_color(opt):
     input_file = os.path.join(opt.data_root, opt.dataset, opt.file_name + '.pickle')
+    print('Opening: ', input_file)
     assert os.path.isfile(input_file), 'File not exist - {}.'.format(input_file)
 
     with open(input_file, 'rb') as f:
@@ -71,7 +72,6 @@ def get_coords_color(opt):
     rgb = (rgb + 1) * 127.5
 
     if (opt.task == 'semantic_gt'):
-        assert opt.room_split != 'test'
         label = label.astype(np.int)
         label_rgb = np.zeros(rgb.shape)
         label_rgb[label >= 0] = np.array(itemgetter(*SEMANTIC_NAMES[label[label >= 0]])(CLASS_COLOR))
@@ -130,7 +130,7 @@ if __name__ == '__main__':
     #parser.add_argument('--room_split', help='train / val / test', default='train')
     parser.add_argument('--task', help='input / semantic_gt / semantic_pred / instance_gt / instance_pred', default='input')
     parser.add_argument('--dataset', help='train/val/test', default='train')
-    parser.add_argument('--file_name', help='enter the file name', default='moving_001_1')
+    parser.add_argument('--file_name', help='enter the file name', default='moving_001_47')
     opt = parser.parse_args()
 
     xyz, rgb = get_coords_color(opt)
