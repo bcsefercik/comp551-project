@@ -20,6 +20,13 @@ Use train.py
 
 3. Go to your browser and visit localhost:9001
 
+## Visualization
+
+Please use the visuzalize_alive.py in the util folder. Mayavi is slow with X server forwarding
+so usually we donwload the necessary data to our computer and use the mayavi in local. Right 
+now it can work with both  3.7, and 3.8 version of the python. Please do not modify the code
+if file io error occurs but modify your own data paths because you are not the only one that use 
+the code.
 
 # PointGroup
 ## PointGroup: Dual-Set Point Grouping for 3D Instance Segmentation (CVPR2020)
