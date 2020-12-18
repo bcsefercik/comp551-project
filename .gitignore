@@ -1,6 +1,9 @@
 # Specific folders
 _gitignore
-PointGroup/
+PointGroup/dataset/
+PointGroup/exp/
+PointGroup/lib/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
