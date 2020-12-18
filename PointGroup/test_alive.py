@@ -13,7 +13,7 @@ from util.config import cfg
 cfg.task = 'test'
 from util.log import logger
 import util.utils as utils
-import util.eval as eval
+import util.eval_alive as eval
 
 def init():
     global result_dir
@@ -80,6 +80,7 @@ def test(model, model_fn, data_name, epoch):
 
             pt_offsets = preds['pt_offsets']    # (N, 3), float32, cuda
 
+            epoch = 1
             if (epoch > cfg.prepare_epochs):
                 scores = preds['score']   # (nProposal, 1) float, cuda
                 scores_pred = torch.sigmoid(scores.view(-1))
@@ -115,7 +116,9 @@ def test(model, model_fn, data_name, epoch):
                     proposals_pn_h = proposals_pointnum.unsqueeze(-1).repeat(1, proposals_pointnum.shape[0])
                     proposals_pn_v = proposals_pointnum.unsqueeze(0).repeat(proposals_pointnum.shape[0], 1)
                     cross_ious = intersection / (proposals_pn_h + proposals_pn_v - intersection)
-                    pick_idxs = non_max_suppression(cross_ious.cpu().numpy(), scores_pred.cpu().numpy(), cfg.TEST_NMS_THRESH)  # int, (nCluster, N)
+                    #pick_idxs = non_max_suppression(cross_ious.cpu().numpy(), scores_pred.cpu().numpy(), cfg.TEST_NMS_THRESH)  # int, (nCluster, N)
+                    pick_idxs = np.array([0,1])
+                    
                 clusters = proposals_pred[pick_idxs]
                 cluster_scores = scores_pred[pick_idxs]
                 cluster_semantic_id = semantic_id[pick_idxs]
@@ -123,7 +126,6 @@ def test(model, model_fn, data_name, epoch):
                 nclusters = clusters.shape[0]
 
                 ##### prepare for evaluation
-                cfg.eval = False
                 if cfg.eval:
                     pred_info = {}
                     pred_info['conf'] = cluster_scores.cpu().numpy()
