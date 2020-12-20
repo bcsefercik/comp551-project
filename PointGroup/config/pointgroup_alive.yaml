@@ -3,7 +3,7 @@ GENERAL:
   manual_seed: 123
   model_dir: model/pointgroup/pointgroup.py
   dataset_dir: data/alivev1_inst.py
-  exp_path: 'exp/alivev1/pointgroup/pointgroup_alive/100_45_epoch/'
+  exp_path: 'exp/alivev1/pointgroup/pointgroup_alive/trial/'
 
 DATA:
   data_root: dataset
@@ -29,11 +29,11 @@ STRUCTURE:
   use_coords: True
 
 TRAIN:
-  epochs: 128
+  epochs: 30
   train_workers: 16 # data loader workers
   optim: Adam # Adam or SGD
   lr: 0.001
-  step_epoch: 128 #Should same with epochs
+  step_epoch: 30 #Should same with epochs
   multiplier: 0.5
   momentum: 0.9
   weight_decay: 0.0001
@@ -58,11 +58,11 @@ GROUP:
   cluster_shift_meanActive: 300
   cluster_npoint_thre: 50
 
-  prepare_epochs: 45 #prepare_epochs: 128
+  prepare_epochs: 8 #prepare_epochs: 128
 
 TEST:
   split: val
-  test_epoch: 128
+  test_epoch: 30
   test_workers: 16
   test_seed: 567
 

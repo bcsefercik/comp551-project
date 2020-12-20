@@ -233,6 +233,7 @@ if __name__ == '__main__':
     logger.info('=> creating model ...')
     logger.info('Classes: {}'.format(cfg.classes))
 
+
     if model_name == 'pointgroup':
         from model.pointgroup.pointgroup import PointGroup as Network
         from model.pointgroup.pointgroup import model_fn_decorator
