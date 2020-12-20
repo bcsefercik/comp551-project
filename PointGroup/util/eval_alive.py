@@ -50,8 +50,11 @@ def evaluate_matches(matches):
                     pred_instances = matches[m]['pred'][label_name]
                     gt_instances = matches[m]['gt'][label_name]
                     # filter groups in ground truth
+                    #Alive updated this line
+                    #gt_instances = [gt for gt in gt_instances if gt['instance_id'] >= 1000 and gt['vert_count'] >= min_region_size and gt['med_dist'] <= distance_thresh and gt['dist_conf'] >= distance_conf]
+
                     gt_instances = [gt for gt in gt_instances if
-                                    gt['instance_id'] >= 1000 and gt['vert_count'] >= min_region_size and gt['med_dist'] <= distance_thresh and gt['dist_conf'] >= distance_conf]
+                                    gt['vert_count'] >= min_region_size and gt['med_dist'] <= distance_thresh and gt['dist_conf'] >= distance_conf]
                     if gt_instances:
                         has_gt = True
                     if pred_instances:
@@ -70,6 +73,7 @@ def evaluate_matches(matches):
                                 continue
                             overlap = float(pred['intersection']) / (
                             gt['vert_count'] + pred['vert_count'] - pred['intersection'])
+                            print('Threshold: ',overlap_th," File Name: ", m, ' Label: ', label_name, ' Overlap: ', overlap)
                             if overlap > overlap_th:
                                 confidence = pred['confidence']
                                 # if already have a prediction for this gt,
@@ -107,7 +111,8 @@ def evaluate_matches(matches):
                             num_ignore = pred['void_intersection']
                             for gt in pred['matched_gt']:
                                 # group?
-                                if gt['instance_id'] < 1000:
+                                #if gt['instance_id'] < 1000:
+                                if gt['instance_id'] < 0:
                                     num_ignore += gt['intersection']
                                 # small ground truth instances
                                 if gt['vert_count'] < min_region_size or gt['med_dist'] > distance_thresh or gt['dist_conf'] < distance_conf:

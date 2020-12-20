@@ -73,6 +73,7 @@ def test(model, model_fn, data_name, epoch):
             start1 = time.time()
             preds = model_fn(batch, model, epoch)
             end1 = time.time() - start1
+            #end1 = preds['unet_time'] - start1
 
             ##### get predictions (#1 semantic_pred, pt_offsets; #2 scores, proposals_pred)
             semantic_scores = preds['semantic']  # (N, nClass=20) float32, cuda
@@ -80,7 +81,7 @@ def test(model, model_fn, data_name, epoch):
 
             pt_offsets = preds['pt_offsets']    # (N, 3), float32, cuda
 
-            epoch = 1
+
             if (epoch > cfg.prepare_epochs):
                 scores = preds['score']   # (nProposal, 1) float, cuda
                 scores_pred = torch.sigmoid(scores.view(-1))
@@ -118,7 +119,7 @@ def test(model, model_fn, data_name, epoch):
                     cross_ious = intersection / (proposals_pn_h + proposals_pn_v - intersection)
                     #pick_idxs = non_max_suppression(cross_ious.cpu().numpy(), scores_pred.cpu().numpy(), cfg.TEST_NMS_THRESH)  # int, (nCluster, N)
                     pick_idxs = np.array([0,1])
-                    
+
                 clusters = proposals_pred[pick_idxs]
                 cluster_scores = scores_pred[pick_idxs]
                 cluster_semantic_id = semantic_id[pick_idxs]
@@ -131,6 +132,32 @@ def test(model, model_fn, data_name, epoch):
                     pred_info['conf'] = cluster_scores.cpu().numpy()
                     pred_info['label_id'] = cluster_semantic_id.cpu().numpy()
                     pred_info['mask'] = clusters.cpu().numpy()
+                    gt_file = os.path.join(cfg.data_root, cfg.dataset, cfg.split + '_gt', test_scene_name + '.txt')
+                    gt2pred, pred2gt = eval.assign_instances_for_scan(test_scene_name, pred_info, gt_file)
+                    matches[test_scene_name] = {}
+                    matches[test_scene_name]['gt'] = gt2pred
+                    matches[test_scene_name]['pred'] = pred2gt
+
+                if cfg.eval_alive:
+                    pred_info = {}
+                    pred_info['conf']     = np.array([1,1], dtype = 'float32') #We have two classes, arm and background, confidences are 1
+                    pred_info['label_id'] = np.array([0,1], dtype = 'int') #We have two classes 
+                    n_points = semantic_pred.shape[0]
+                    labels            = [0,1]
+                    semantic_pred_cpu = semantic_pred.cpu().numpy()
+                    masks  = []
+                    for i in labels:
+                        label_mask = []
+                        for j in range(n_points):
+                            if semantic_pred_cpu[j] == i:
+                                label_mask.append(1)
+                            else:
+                                label_mask.append(0)
+                        masks.append(label_mask)
+
+
+
+                    pred_info['mask'] = np.array(masks,dtype='int32')
                     gt_file = os.path.join(cfg.data_root, cfg.dataset, cfg.split + '_gt', test_scene_name + '.txt')
                     gt2pred, pred2gt = eval.assign_instances_for_scan(test_scene_name, pred_info, gt_file)
                     matches[test_scene_name] = {}
@@ -176,6 +203,10 @@ def test(model, model_fn, data_name, epoch):
             avgs = eval.compute_averages(ap_scores)
             eval.print_results(avgs)
 
+        if cfg.eval_alive:
+            ap_scores = eval.evaluate_matches(matches)
+            avgs = eval.compute_averages(ap_scores)
+            eval.print_results(avgs)
 
 def non_max_suppression(ious, scores, threshold):
     ixs = scores.argsort()[::-1]

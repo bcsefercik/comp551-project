@@ -2,7 +2,7 @@
 PointGroup
 Written by Li Jiang
 '''
-
+import time
 import torch
 import torch.nn as nn
 import spconv
@@ -265,12 +265,11 @@ class PointGroup(nn.Module):
         output = self.unet(output)
         output = self.output_layer(output)
         output_feats = output.features[input_map.long()]
-
         #### semantic segmentation
         semantic_scores = self.linear(output_feats)   # (N, nClass), float
         semantic_preds = semantic_scores.max(1)[1]    # (N), long
-
         ret['semantic_scores'] = semantic_scores
+        #ret['unet_time'] = time.time()
 
         #### offset
         pt_offsets_feats = self.offset(output_feats)
@@ -345,9 +344,7 @@ def model_fn_decorator(test=False):
         if cfg.use_coords:
             feats = torch.cat((feats, coords_float), 1)
         voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.mode)  # (M, C), float, cuda
-
         input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
-
         ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch)
         semantic_scores = ret['semantic_scores']  # (N, nClass) float32, cuda
         pt_offsets = ret['pt_offsets']            # (N, 3), float32, cuda
@@ -359,10 +356,10 @@ def model_fn_decorator(test=False):
             preds = {}
             preds['semantic'] = semantic_scores
             preds['pt_offsets'] = pt_offsets
+            #preds['unet_time'] = ret['unet_time']
             if (epoch > cfg.prepare_epochs):
                 preds['score'] = scores
                 preds['proposals'] = (proposals_idx, proposals_offset)
-
         return preds
 
 
@@ -394,8 +391,10 @@ def model_fn_decorator(test=False):
         voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.mode)  # (M, C), float, cuda
 
         input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
-
+        start1 = time.time()
         ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch)
+        end1 = time.time() - start1
+
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
         pt_offsets = ret['pt_offsets']           # (N, 3), float32, cuda
         if(epoch > cfg.prepare_epochs):
