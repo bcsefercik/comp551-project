@@ -126,9 +126,9 @@ if __name__ == '__main__':
     parser.add_argument('--result_root', help='path to the predicted results', default='exp/alivev1/pointgroup/pointgroup_alive/trial/result/epoch30_nmst0.3_scoret0.09_npointt100')
     #parser.add_argument('--room_name', help='room_name', default='scene0000_00')
     #parser.add_argument('--room_split', help='train / val / test', default='train')
-    parser.add_argument('--task', help='input / semantic_gt / semantic_pred / instance_gt / instance_pred', default='semantic_pred')
+    parser.add_argument('--task', help='input / semantic_gt / semantic_pred / instance_gt / instance_pred', default='semantic_gt')
     parser.add_argument('--dataset', help='train/val/test', default='val')
-    parser.add_argument('--file_name', help='enter the file name', default='moving_001_52')
+    parser.add_argument('--file_name', help='enter the file name', default='moving_001_4')
     opt = parser.parse_args()
 
     xyz, rgb = get_coords_color(opt)
