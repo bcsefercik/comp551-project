@@ -3,7 +3,9 @@ _gitignore
 PointGroup/dataset/
 PointGroup/exp/
 PointGroup/lib/
-
+RobotNet/dataset/
+RobotNet/exp/
+RobotNet/lib/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
