@@ -286,6 +286,11 @@ class RobotNet(nn.Module):
         #ret['unet_time'] = time.time()
 
         """
+        TO-DO: Add the end effector prediction code
+        """
+
+
+        """
         #Onur: Removing unnessary parts
         #### offset
         pt_offsets_feats = self.offset(output_feats)
