@@ -285,12 +285,17 @@ class RobotNet(nn.Module):
 
         #ret['unet_time'] = time.time()
 
+        """
+        #Onur: Removing unnessary parts
         #### offset
         pt_offsets_feats = self.offset(output_feats)
-        pt_offsets = self.offset_linear(pt_offsets_feats)   # (N, 3), float32
+        pt_offsets       = self.offset_linear(pt_offsets_feats)   # (N, 3), float32
+        """
 
+        """
+        #Onur: Removing unnessary parts
         ret['pt_offsets'] = pt_offsets
-
+        """
 
         """
         #Onur: Removing unncessary parts from the model
@@ -409,12 +414,16 @@ def model_fn_decorator(test=False):
 
         input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
         start1 = time.time()
-        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch)
-        end1 = time.time() - start1
+        ret    = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch)
+        end1   = time.time() - start1
 
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
 
+        """
+        #Onur: Removing unnessary parts
         pt_offsets = ret['pt_offsets']           # (N, 3), float32, cuda
+        """
+
 
         """
         Onur: Removing unnessary parts from the model
@@ -427,7 +436,12 @@ def model_fn_decorator(test=False):
 
         loss_inp = {}
         loss_inp['semantic_scores'] = (semantic_scores, labels)
-        loss_inp['pt_offsets'] = (pt_offsets, coords_float, instance_info, instance_labels)
+        
+        """
+        #Onur: Removing unnessary parts
+        loss_inp['pt_offsets']      = (pt_offsets, coords_float, instance_info, instance_labels)
+        """
+
         """
         Onur: Removing unnessary parts from the model
         if(epoch > cfg.prepare_epochs):
@@ -440,10 +454,15 @@ def model_fn_decorator(test=False):
         with torch.no_grad():
             preds = {}
             preds['semantic'] = semantic_scores
+
+            """
+            Onur: Removing unnessary parts
             preds['pt_offsets'] = pt_offsets
+            
             if(epoch > cfg.prepare_epochs):
                 preds['score'] = scores
                 preds['proposals'] = (proposals_idx, proposals_offset)
+            """
 
             visual_dict = {}
             visual_dict['loss'] = loss
@@ -461,16 +480,18 @@ def model_fn_decorator(test=False):
     def loss_fn(loss_inp, epoch):
 
         loss_out = {}
-        infos = {}
+        infos    = {}
 
         '''semantic loss'''
         semantic_scores, semantic_labels = loss_inp['semantic_scores']
         # semantic_scores: (N, nClass), float32, cuda
         # semantic_labels: (N), long, cuda
 
-        semantic_loss = semantic_criterion(semantic_scores, semantic_labels)
+        semantic_loss             = semantic_criterion(semantic_scores, semantic_labels)
         loss_out['semantic_loss'] = (semantic_loss, semantic_scores.shape[0])
 
+        """
+        #Onur: Removing unnessary parts
         '''offset loss'''
         pt_offsets, coords, instance_info, instance_labels = loss_inp['pt_offsets']
         # pt_offsets: (N, 3), float, cuda
@@ -478,22 +499,25 @@ def model_fn_decorator(test=False):
         # instance_info: (N, 9), float32 tensor (meanxyz, minxyz, maxxyz)
         # instance_labels: (N), long
 
-        gt_offsets = instance_info[:, 0:3] - coords   # (N, 3)
-        pt_diff = pt_offsets - gt_offsets   # (N, 3)
-        pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)   # (N)
-        valid = (instance_labels != cfg.ignore_label).float()
+        gt_offsets       = instance_info[:, 0:3] - coords   # (N, 3)
+        pt_diff          = pt_offsets - gt_offsets   # (N, 3)
+        pt_dist          = torch.sum(torch.abs(pt_diff), dim=-1)   # (N)
+        valid            = (instance_labels != cfg.ignore_label).float()
         offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
 
         gt_offsets_norm = torch.norm(gt_offsets, p=2, dim=1)   # (N), float
-        gt_offsets_ = gt_offsets / (gt_offsets_norm.unsqueeze(-1) + 1e-8)
+        gt_offsets_     = gt_offsets / (gt_offsets_norm.unsqueeze(-1) + 1e-8)
         pt_offsets_norm = torch.norm(pt_offsets, p=2, dim=1)
-        pt_offsets_ = pt_offsets / (pt_offsets_norm.unsqueeze(-1) + 1e-8)
-        direction_diff = - (gt_offsets_ * pt_offsets_).sum(-1)   # (N)
+        pt_offsets_     = pt_offsets / (pt_offsets_norm.unsqueeze(-1) + 1e-8)
+        direction_diff  = - (gt_offsets_ * pt_offsets_).sum(-1)   # (N)
         offset_dir_loss = torch.sum(direction_diff * valid) / (torch.sum(valid) + 1e-6)
 
         loss_out['offset_norm_loss'] = (offset_norm_loss, valid.sum())
-        loss_out['offset_dir_loss'] = (offset_dir_loss, valid.sum())
+        loss_out['offset_dir_loss']  = (offset_dir_loss, valid.sum())
+        """
 
+        """
+        #Onur: Removing unnessary parts of the model
         if (epoch > cfg.prepare_epochs):
             '''score loss'''
             scores, proposals_idx, proposals_offset, instance_pointnum = loss_inp['proposal_scores']
@@ -510,11 +534,22 @@ def model_fn_decorator(test=False):
             score_loss = score_loss.mean()
 
             loss_out['score_loss'] = (score_loss, gt_ious.shape[0])
+        """
 
         '''total loss'''
+
+        loss = cfg.loss_weight[0] * semantic_loss
+
+        """
+        #Onur: Removing unnessary parts
         loss = cfg.loss_weight[0] * semantic_loss + cfg.loss_weight[1] * offset_norm_loss + cfg.loss_weight[2] * offset_dir_loss
+        """
+
+        """
+        #Onur: Removing unnessary parts of the model
         if(epoch > cfg.prepare_epochs):
             loss += (cfg.loss_weight[3] * score_loss)
+        """
 
         return loss, loss_out, infos
 
