@@ -284,15 +284,24 @@ class RobotNet(nn.Module):
         #print('Semantic Prediction shape is: ', semantic_preds.shape)
         ret['semantic_scores'] = semantic_scores
 
-        if self.epoch > self.prepare_epochs:
-            arm_mask = semantic_preds == 1 
 
-        ##### Extracting Arm 
         #ret['unet_time'] = time.time()
 
         """
         TO-DO: Add the end effector prediction code
         """
+
+        ##### Extracting Arm 
+        if self.epoch > self.prepare_epochs:
+            arm_points = list()
+            for ii in range(len(batch_offsets)-1):
+                batch_coords = coords[batch_offsets[ii]:batch_offsets[ii+1]]
+                arm_mask     = semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1
+                arm_points.append(batch_coords[arm_mask])
+                voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(  torch.cat(arm_points[ii],0), 1)
+                
+
+
 
 
         """

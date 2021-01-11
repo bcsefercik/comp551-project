@@ -183,6 +183,8 @@ class Dataset:
         self.iteration_cnt += 1
         self.epoch          = math.ceil(self.iteration_cnt/self.batch_cnt)
         augment             = self.epoch  < self.prepare_epochs
+        
+        self.scale = self.scale if augment else 1
 
         for i, idx in enumerate(id):
             xyz_origin, rgb, label, instance_label = self.get_data(idx,'train')
@@ -193,9 +195,10 @@ class Dataset:
 
             ### scale
             xyz        = xyz_middle * self.scale
+
             ### elastic
-            xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
-            xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+            xyz = self.elastic(xyz, max(1,6 * self.scale // 50), 40 * self.scale / 50)
+            xyz = self.elastic(xyz, max(1,20 * self.scale // 50), 160 * self.scale / 50)
             ### offset
             xyz -= xyz.min(0)
             ### crop
