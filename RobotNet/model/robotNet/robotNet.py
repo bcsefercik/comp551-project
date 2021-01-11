@@ -221,7 +221,7 @@ class RobotNet(nn.Module):
         :param coords: (N, 3), float, cuda
         :return:
         '''
-        c_idxs = clusters_idx[:, 1].cuda()
+        c_idxs          = clusters_idx[:, 1].cuda()
         clusters_feats = feats[c_idxs.long()]
         clusters_coords = coords[c_idxs.long()]
 
@@ -281,8 +281,13 @@ class RobotNet(nn.Module):
         #### semantic segmentation
         semantic_scores        = self.linear(output_feats)# (N, nClass), float
         semantic_preds         = semantic_scores.max(1)[1]# (N), long
+        #print('Semantic Prediction shape is: ', semantic_preds.shape)
         ret['semantic_scores'] = semantic_scores
 
+        if self.epoch > self.prepare_epochs:
+            arm_mask = semantic_preds == 1 
+
+        ##### Extracting Arm 
         #ret['unet_time'] = time.time()
 
         """

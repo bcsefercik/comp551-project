@@ -15,6 +15,9 @@ from util.config import cfg
 from util.log import logger
 from lib.pointgroup_ops.functions import pointgroup_ops
 
+
+import math
+
 class Dataset:
     def __init__(self, test=False):
         self.data_root       = cfg.data_root
@@ -27,6 +30,10 @@ class Dataset:
         self.scale           = cfg.scale
         self.max_npoint      = cfg.max_npoint
         self.mode            = cfg.mode
+        self.epoch           = 0
+        self.prepare_epochs  = cfg.prepare_epochs
+        self.iteration_cnt   = 0
+        self.file_cnt        = 0
         self.file_names      = {}
         #print(cfg)
 
@@ -38,6 +45,8 @@ class Dataset:
 
     def trainLoader(self):
         self.file_names['train'] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
+        self.file_cnt   =  len(self.file_names['train'])
+        self.batch_cnt  = math.ceil(self.file_cnt / self.batch_size)
         train_set = list(range(len(self.file_names['train'])))
         self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.trainMerge, num_workers=self.train_workers,
                                             shuffle=True, sampler=None, drop_last=True, pin_memory=True)
@@ -47,7 +56,8 @@ class Dataset:
 
     def valLoader(self):
         self.file_names['val'] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix)))
-
+        self.file_cnt   =  len(self.file_names['val'])
+        self.batch_cnt  = math.ceil(self.file_cnt / self.batch_size)
         val_set = list(range(len(self.file_names['val'])))
         self.val_data_loader = DataLoader(val_set, batch_size=self.batch_size, collate_fn=self.valMerge, num_workers=self.val_workers,
                                           shuffle=False, drop_last=False, pin_memory=True)
@@ -56,6 +66,8 @@ class Dataset:
 
     def testLoader(self):
         self.file_names[self.test_split] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix)))
+        self.file_cnt  =  len(self.file_names['test'])
+        self.batch_cnt = math.ceil(self.file_cnt / self.batch_size)
         test_set = list(np.arange(len(self.file_names[self.test_split])))
         self.test_data_loader = DataLoader(test_set, batch_size=1, collate_fn=self.testMerge, num_workers=self.test_workers,
                                            shuffle=False, drop_last=False, pin_memory=True)
@@ -163,16 +175,22 @@ class Dataset:
         feats           = []
         labels          = []
         instance_labels = []
-
         instance_infos    = []  # (N, 9)
         instance_pointnum = []  # (total_nInst), int
         batch_offsets     = [0]
         total_inst_num    = 0
+
+        self.iteration_cnt += 1
+        self.epoch          = math.ceil(self.iteration_cnt/self.batch_cnt)
+        augment             = self.epoch  < self.prepare_epochs
+
         for i, idx in enumerate(id):
             xyz_origin, rgb, label, instance_label = self.get_data(idx,'train')
 
             ### jitter / flip x / rotation
-            xyz_middle = self.dataAugment(xyz_origin, True, True, True)
+            xyz_middle = self.dataAugment(xyz_origin, augment, augment, augment)
+
+
             ### scale
             xyz        = xyz_middle * self.scale
             ### elastic
@@ -185,6 +203,9 @@ class Dataset:
 
             xyz_middle     = xyz_middle[valid_idxs]
             xyz            = xyz[valid_idxs]
+ 
+ 
+ 
             rgb            = rgb[valid_idxs]
             label          = label[valid_idxs]
             instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
@@ -212,21 +233,22 @@ class Dataset:
         ### merge all the scenes in the batchd
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
 
-        locs = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        #locs_float = torch.cat(locs_float, 0).to(torch.float64)  # float (N, 3)
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
+        locs        = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+        #locs_float = torch.cat(locs_float, 0).to(torch.float64) # float (N, 3)
+        locs_float  = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
 
-        feats = torch.cat(feats, 0)                              # float (N, C)
-        labels = torch.cat(labels, 0).long()                     # long (N)
+        feats           = torch.cat(feats, 0)                              # float (N, C)
+        labels          = torch.cat(labels, 0).long()                     # long (N)
         instance_labels = torch.cat(instance_labels, 0).long()   # long (N)
 
-        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float (N, 9) (meanxyz, minxyz, maxxyz)
+        instance_infos    = torch.cat(instance_infos, 0).to(torch.float32)       # float (N, 9) (meanxyz, minxyz, maxxyz)
         instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
 
         spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None)     # long (3)
 
         ### voxelize
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
+
 
         return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
                 'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
