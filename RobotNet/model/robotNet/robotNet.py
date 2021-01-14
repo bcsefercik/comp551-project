@@ -15,6 +15,11 @@ sys.path.append('../../')
 from lib.pointgroup_ops.functions import pointgroup_ops
 from util import utils
 
+#-----------
+import open3d as o3d
+import numpy as np
+#-----------
+
 class ResidualBlock(SparseModule):
     def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
         super().__init__()
@@ -118,6 +123,10 @@ class RobotNet(nn.Module):
         block_reps     = cfg.block_reps
         block_residual = cfg.block_residual
 
+        self.fc1_hidden = cfg.fc1_hidden
+        self.fc2_hidden = cfg.fc2_hidden
+        self.regres_dim = cfg.regres_dim
+
         self.cluster_radius           = cfg.cluster_radius
         self.cluster_meanActive       = cfg.cluster_meanActive
         self.cluster_shift_meanActive = cfg.cluster_shift_meanActive
@@ -126,7 +135,7 @@ class RobotNet(nn.Module):
         self.score_scale     = cfg.score_scale
         self.score_fullscale = cfg.score_fullscale
         self.mode            = cfg.score_mode
-
+        self.max_point_lim   = cfg.max_point_lim
         self.prepare_epochs  = cfg.prepare_epochs
 
         self.pretrain_path   = cfg.pretrain_path
@@ -158,6 +167,13 @@ class RobotNet(nn.Module):
         #### semantic segmentation
         self.linear = nn.Linear(m, classes) # bias(default): True
 
+        self.regression = nn.Sequential(
+                    nn.Linear(self.max_point_lim*3, self.fc1_hidden),
+                    nn.Tanh(),
+                    nn.Linear(self.fc1_hidden, self.fc2_hidden),
+                    nn.Tanh(),
+                    nn.Linear(self.fc2_hidden, self.regres_dim),
+                )
 
         """
         Onur:Removing unnecssary parts
@@ -167,6 +183,7 @@ class RobotNet(nn.Module):
             norm_fn(m),
             nn.ReLU()
         )
+
         self.offset_linear = nn.Linear(m, 3, bias=True)
 
         #### score branch
@@ -184,7 +201,7 @@ class RobotNet(nn.Module):
 
         #Our new model
         module_map = {'input_conv': self.input_conv, 'unet': self.unet, 'output_layer': self.output_layer,
-                      'linear': self.linear}
+                      'linear': self.linear, 'regression': self.regression}
 
 
         """
@@ -193,6 +210,7 @@ class RobotNet(nn.Module):
                       'linear': self.linear, 'offset': self.offset, 'offset_linear': self.offset_linear,
                       'score_unet': self.score_unet, 'score_outputlayer': self.score_outputlayer, 'score_linear': self.score_linear}
         """
+
         for m in self.fix_module:
             mod = module_map[m]
             for param in mod.parameters():
@@ -265,44 +283,64 @@ class RobotNet(nn.Module):
 
 
     def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch):
+        #Params: input_, p2v_map,  coords_float, coords[:, 0].int(), batch_offsets, epoch
+
         '''
         :param input_map: (N), int, cuda
-        :param coords: (N, 3), float, cuda
+        :param coords: (N, 3), float, cuda 
+            this is locs_float
         :param batch_idxs: (N), int, cuda
         :param batch_offsets: (B + 1), int, cuda
         '''
-
         ret                    = {}
         output                 = self.input_conv(input)
         output                 = self.unet(output)
         output                 = self.output_layer(output)
         output_feats           = output.features[input_map.long()]
-        
+
         #### semantic segmentation
         semantic_scores        = self.linear(output_feats)# (N, nClass), float
         semantic_preds         = semantic_scores.max(1)[1]# (N), long
         #print('Semantic Prediction shape is: ', semantic_preds.shape)
         ret['semantic_scores'] = semantic_scores
 
-
         #ret['unet_time'] = time.time()
 
-        """
-        TO-DO: Add the end effector prediction code
-        """
-
         ##### Extracting Arm 
-        if self.epoch > self.prepare_epochs:
-            arm_points = list()
+        if epoch > self.prepare_epochs:
+            pcd              = o3d.geometry.PointCloud()
+            arm_regress_list = list()
             for ii in range(len(batch_offsets)-1):
                 batch_coords = coords[batch_offsets[ii]:batch_offsets[ii+1]]
                 arm_mask     = semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1
-                arm_points.append(batch_coords[arm_mask])
-                voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(  torch.cat(arm_points[ii],0), 1)
-                
+                arm_points   = batch_coords[arm_mask]
+                device       = arm_points.device
+
+                #Moving to CPU
+                pcd.points = o3d.utility.Vector3dVector(arm_points.cpu().numpy())
+                #o3d.io.write_point_cloud("./arm.pcd", pcd , write_ascii=False, compressed=False, print_progress=True)
+                vox_pcd = pcd.voxel_down_sample(voxel_size=0.005)
+                length  = np.asarray(vox_pcd.points).shape[0]
+
+                if length > self.max_point_lim:
+                    ind      = np.random.choice(length, self.max_point_lim, replace=False)
+                    down_pcd = vox_pcd.select_by_index(ind)
+                    
+                    #o3d.io.write_point_cloud("./down_pcd.pcd", down_pcd , write_ascii=False, compressed=False, print_progress=True)
+
+                #we should update
+                else:
+                    ind      = np.random.choice(length, self.max_point_lim)
+                    down_pcd = vox_pcd.select_by_index(ind)
+
+                points       = np.asarray(down_pcd.points).reshape(-1)
 
 
+                new_arm_points  = torch.from_numpy(points).float().to(device)
+                arm_regress     = self.regression(new_arm_points)
+                arm_regress_list.append(arm_regress)
 
+        ret['arm_regress'] = arm_regress_list
 
         """
         #Onur: Removing unnessary parts
@@ -414,10 +452,14 @@ def model_fn_decorator(test=False):
         voxel_coords = batch['voxel_locs'].cuda()  # (M, 1 + 3), long, cuda
         p2v_map      = batch['p2v_map'].cuda()     # (N), int, cuda
         v2p_map      = batch['v2p_map'].cuda()     # (M, 1 + maxActive), int, cuda
+        #p2v_map: N points -> M voxels (Use it with p2v_map.cpu().numpy(), its the combination of #batch_size scenes)
+        #v2p_map: M_voxels -> N points (Use it with v2p_map.cpu().numpy(), its the combination of #batch_size scenes)
+
 
         coords_float    = batch['locs_float'].cuda()      # (N, 3), float32, cuda
         feats           = batch['feats'].cuda().float()   # (N, C), float32, cuda
         labels          = batch['labels'].cuda()          # (N), long, cuda
+        #arm_labels      = batch['arm_labels'].cuda()     # (B, 7), long, cuda
         instance_labels = batch['instance_labels'].cuda() # (N), long, cuda, 0~total_nInst, -100
 
         instance_info     = batch['instance_info'].cuda()          # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
@@ -428,15 +470,18 @@ def model_fn_decorator(test=False):
         spatial_shape = batch['spatial_shape']
 
         if cfg.use_coords:
-            feats = torch.cat((feats, coords_float), 1)
+            feats = torch.cat((feats, coords_float), 1) #Onur: Feats are just RGB
+        #We already get the indices of voxels, now we are doing the real voxelization
         voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.mode)  # (M, C), float, cuda
-
+        #This just generates the sparse convolution object. The object can be used with sparse convolutions.
         input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
         start1 = time.time()
         ret    = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch)
         end1   = time.time() - start1
 
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
+
+        arm_regress = ret['arm_regress']
 
         """
         #Onur: Removing unnessary parts
@@ -455,7 +500,8 @@ def model_fn_decorator(test=False):
 
         loss_inp = {}
         loss_inp['semantic_scores'] = (semantic_scores, labels)
-        
+        loss_inp['arm_regress']     = (arm_regress, arm_labels)
+
         """
         #Onur: Removing unnessary parts
         loss_inp['pt_offsets']      = (pt_offsets, coords_float, instance_info, instance_labels)
@@ -503,11 +549,19 @@ def model_fn_decorator(test=False):
 
         '''semantic loss'''
         semantic_scores, semantic_labels = loss_inp['semantic_scores']
+        arm_regress, arm_labels          = loss_inp['arm_regress']
+
         # semantic_scores: (N, nClass), float32, cuda
         # semantic_labels: (N), long, cuda
 
         semantic_loss             = semantic_criterion(semantic_scores, semantic_labels)
         loss_out['semantic_loss'] = (semantic_loss, semantic_scores.shape[0])
+
+        if (epoch > cfg.prepare_epochs):
+        '''regression loss'''
+        #To-do: implement regression_loss
+        # loss_fn = torch.nn.MSELoss(reduction='sum')
+        #loss_out['regression_loss'] = (regression_loss, )
 
         """
         #Onur: Removing unnessary parts
@@ -557,7 +611,7 @@ def model_fn_decorator(test=False):
 
         '''total loss'''
 
-        loss = cfg.loss_weight[0] * semantic_loss
+        loss = cfg.loss_weight[0] * semantic_loss 
 
         """
         #Onur: Removing unnessary parts

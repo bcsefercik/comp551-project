@@ -1,3 +1,9 @@
 {
-    "python.pythonPath": "/home/onurberk/anaconda3/envs/pointgroup/bin/python"
+    "python.pythonPath": "/home/onurberk/anaconda3/envs/pointgroup/bin/python",
+    "extensions.ignoreRecommendations": true,
+    "files.autoSave": "off"
+    "extensions.ignoreRecommendations": true,
+    "files.autoSave": "off"
+    "extensions.ignoreRecommendations": true,
+    "files.autoSave": "off"
 }

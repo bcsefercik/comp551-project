@@ -183,48 +183,53 @@ class Dataset:
         self.iteration_cnt += 1
         self.epoch          = math.ceil(self.iteration_cnt/self.batch_cnt)
         augment             = self.epoch  < self.prepare_epochs
-        
+
         self.scale = self.scale if augment else 1
 
         for i, idx in enumerate(id):
             xyz_origin, rgb, label, instance_label = self.get_data(idx,'train')
+            print('Batch Scene No: ', i, 'Size is: ', xyz_origin.shape)
 
             ### jitter / flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, augment, augment, augment)
-
-
             ### scale
             xyz        = xyz_middle * self.scale
 
-            ### elastic
-            xyz = self.elastic(xyz, max(1,6 * self.scale // 50), 40 * self.scale / 50)
-            xyz = self.elastic(xyz, max(1,20 * self.scale // 50), 160 * self.scale / 50)
+            #xyz is xyz_midde scaled
+
+
+            ### elastic (No elastic distortion for regression)
+            if augment: 
+                xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
+                xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+
             ### offset
             xyz -= xyz.min(0)
+
             ### crop
             xyz, valid_idxs = self.crop(xyz)
 
             xyz_middle     = xyz_middle[valid_idxs]
             xyz            = xyz[valid_idxs]
- 
- 
- 
+
+
+
             rgb            = rgb[valid_idxs]
             label          = label[valid_idxs]
             instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
 
             ### get instance information
             inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32))
-            inst_info = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-            inst_pointnum = inst_infos["instance_pointnum"]   # (nInst), list
+            inst_info            = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+            inst_pointnum        = inst_infos["instance_pointnum"]   # (nInst), list
 
             instance_label[np.where(instance_label != -100)] += total_inst_num
-            total_inst_num += inst_num
+            total_inst_num                                   += inst_num
 
             ### merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
 
-            locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1))
+            locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1)) #Cok garip birsey
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
             labels.append(torch.from_numpy(label))
@@ -250,7 +255,9 @@ class Dataset:
         spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None)     # long (3)
 
         ### voxelize
-        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
+        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode) #This is not giving us sequential voxels in point space...
+        #p2v_map: N points -> M voxels (Use it with p2v_map.cpu().numpy(), its the combination of #batch_size scenes)
+        #v2p_map: M_voxels -> N points (Use it with v2p_map.cpu().numpy(), its the combination of #batch_size scenes)
 
 
         return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
@@ -260,10 +267,10 @@ class Dataset:
 
 
     def valMerge(self, id):
-        locs = []
-        locs_float = []
-        feats = []
-        labels = []
+        locs            = []
+        locs_float      = []
+        feats           = []
+        labels          = []
         instance_labels = []
 
         instance_infos = []  # (N, 9)
