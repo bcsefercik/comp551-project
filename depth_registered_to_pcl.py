@@ -187,20 +187,20 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 if __name__ == "__main__":
 
-    input_folder = '_gitignore/depth_registered_files/'
-    input_file   = 'moving_001'
+    input_folder = '_gitignore/Dataset/p1/full_light/'
+    input_file   = 'perception_joint_states'
     input_ext    = '.pickle'
-    input_full  = input_folder + input_file + input_ext
+    input_full   = input_folder + input_file + input_ext
     input_file   = open(input_full,'rb')
 
-    output_folder = '_gitignore/pcd_files/moving_001/'
-    output_file   = 'moving_001'
-    output_ext    = '.pcd'
+    output_folder   = '_gitignore/Dataset/p1/full_light/perception_pcl/'
+    output_file     = 'moving'
+    output_ext      = '.pcd'
 
     i = 1
     while True:
         try:
-            point_cloud = pickle.load(input_file)
+            point_cloud,_ = pickle.load(input_file)
             output_full = output_folder + output_file + '_' + str(i) + output_ext
             print("Output: ", output_full)
             pcl_obj = write_pcd(output_full, point_cloud, True)
