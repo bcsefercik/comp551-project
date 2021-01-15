@@ -11,8 +11,9 @@ from depth_registered_to_pcl import write_pcd
 
 
 
-path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/pcd_files/background_000'
-file_names = [f for f in listdir(path) if isfile(join(path, f))]
+path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/background/'
+#file_names = [f for f in listdir(path) if isfile(join(path, f))]
+file_names = ['BG_1.pcd', 'BG_5.pcd','BG_9.pcd']
 n_initial  = 0
 n_next     = 0
 
@@ -65,5 +66,5 @@ if apply_downsampling == True:
 
 
 
-output_file = '/home/onurberk/Desktop/development/comp551-project/_gitignore/pcd_files/unified/unified_background_000.pcd'
+output_file = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/background/combined_bg2.pcd'
 o3d.io.write_point_cloud(output_file, background, write_ascii=False, compressed=False, print_progress=True)

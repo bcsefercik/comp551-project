@@ -44,13 +44,13 @@ class Data:
     '''
     def __init__(self, pcd_path):
 
-        self.pcd         = o3d.io.read_point_cloud(pcd_path)
-        self.arm_ind     = None
-        self.bg_ind      = None
-        self.arm_pcd     = None
-        self.arm_rec_pcd = None
-        self.label_mask  = None
-
+        self.pcd          = o3d.io.read_point_cloud(pcd_path)
+        self.arm_ind      = None
+        self.bg_ind       = None
+        self.arm_pcd      = None
+        self.arm_rec_pcd  = None
+        self.label_mask   = None
+        self.joint_states = None
 
 
     def convert_to_pointgroup(self):
@@ -66,6 +66,23 @@ class Data:
         label[self.arm_ind] = 1
         instance_label = np.zeros(len(self.pcd.points))
         return [xyz,rgb,label,instance_label]
+
+    def convert_to_robotNet(self):
+
+        '''
+        Converts the current data to pointgroup data 
+        '''
+        xyz            = np.asarray(self.pcd.points)
+        rgb            = np.asarray(self.pcd.colors)
+        rgb[:,0]       = preprocessing.minmax_scale(rgb[:,0], feature_range = (-1,1), axis = 0)
+        rgb[:,1]       = preprocessing.minmax_scale(rgb[:,1], feature_range = (-1,1), axis = 0)
+        rgb[:,2]       = preprocessing.minmax_scale(rgb[:,2], feature_range = (-1,1), axis = 0)
+        label          = np.zeros(len(self.pcd.points))
+        label[self.arm_ind] = 1
+        instance_label = np.zeros(len(self.pcd.points))
+        joint_states   = self.joint_states
+        return [xyz,rgb,label,instance_label,joint_states]
+
 
     def surface_reconstruct_arm_pcd(self, visualize=False, verbose=False, sampling_method='poisson_disk', filter_it=0):
         '''
@@ -183,6 +200,15 @@ class Data:
         pickle.dump(data, open(path + '.pickle', "wb"))
         del data
 
+    def write_robotNet_element(self,data,path):
+        '''
+        Please refer to the robotnet/alive/data/alivev1_inst.py
+        '''
+
+        data  = self.convert_to_robotNet()
+        pickle.dump(data, open(path + '.pickle', "wb"))
+        del data
+
     def write_labels_np(self, path):
         '''
         '''
@@ -221,7 +247,7 @@ class Annotator:
         '''
         self.bg_samples = bg_data[0]
 
-    def annotate_batch(self, folder_name = None,output_dir = None,percentages = [0.6,0.2,0.2], bg_pcl=None):
+    def annotate_batch(self, folder_name = None,output_dir = None,percentages = [0.6,0.2,0.2], bg_pcl=None, conversion_type = 'pointgroup', joint_states_data = None, write_pcd = False):
 
         if bg_pcl is not None:
             self.bg_pcl = bg_pcl
@@ -229,15 +255,32 @@ class Annotator:
         files    = [f for f in listdir(folder_name) if isfile(join(folder_name, f))]
         n_sample = len(files)
 
+        assert n_sample == joint_states_data.shape[0]
+
         samples = np.random.choice(3,n_sample,p=percentages)
         int2str = ['train', 'val','test']
         for i in range(n_sample):
-            print('Sample no: ', i)
+
             data = Data(folder_name + files[i])
             data.arm_ind, data.bg_ind, data.label_mask = self.distance_annotate(data.pcd, self.bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
+
+            print('Sample no: ', i, ' ' ,len(data.arm_ind))
+
+            if len(data.arm_ind) < 256:
+                continue
+
+            data.joint_states = joint_states_data[i]
             data.update_arm_pcl_from_ind()
-            output = output_dir + int2str[samples[i]] + '/' + files[i].strip('.pcd')
-            data.write_pointgroup_element(data,output)
+            output     = output_dir + int2str[samples[i]] + '/' + files[i].strip('.pcd')
+            output_pcd = output_dir + 'arm_pcl/' + files[i]
+            if write_pcd:
+                data.write_arm_to_pcd(path=output_pcd)
+
+
+            if conversion_type == 'pointgroup':
+                data.write_pointgroup_element(data,output)
+            elif conversion_type == 'robotNet':
+                data.write_robotNet_element(data,output)
             del data
 
 
@@ -255,7 +298,6 @@ class Annotator:
 
         return target_data
 
-
     def distance_annotate(self, target_cloud, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1):
         '''
         Classifies 3D points into arm and background points
@@ -263,8 +305,7 @@ class Annotator:
         Args:
             param1 (Pointcloud)      : The background Pointcloud.
             param2 (Pointcloud)      : The target Pointcloud set that is being annotated.
-            param3 (string, optional): The target Pointcloud set that is being annotated.
-        
+            
         Returns:
             nparray: returns array of integer containing indices of the robot arm points.
         '''
@@ -273,12 +314,16 @@ class Annotator:
         arm_mask  = dists > removal_th
 
         if clip_depth:
+
             points    = np.asarray(target_cloud.points)
-            arm_mask  = np.logical_and(points[:,2] < max_depth ,  arm_mask)
-        
+            #arm_mask  = np.logical_and(points[:,2] < max_depth ,  arm_mask) This is older version
+            arm_mask  = np.logical_and( points[:,0] <  0.5, arm_mask)
+            arm_mask  = np.logical_and( points[:,0] > -0.5, arm_mask)
+            arm_mask  = np.logical_and( points[:,1] <  0.2, arm_mask)
+            arm_mask  = np.logical_and( points[:,1] > -0.5, arm_mask)
+            arm_mask  = np.logical_and( points[:,2] <  1.0, arm_mask)
+               
         return  np.where(arm_mask == True)[0], np.where(arm_mask == False)[0], arm_mask
-
-
 
 
 if __name__ == "__main__":
@@ -289,13 +334,16 @@ if __name__ == "__main__":
     reconstruct     = False
     verbose         = True
 
-    file_dir    = '_gitignore/pcd_files/moving_001/'
+    file_dir    = '_gitignore/Dataset/p1/full_light/raw_perception_pcl/'
     isDirectory = isdir(file_dir)
 
+    joint_states = np.load('_gitignore/Dataset/p1/full_light/ee_poses.npy', allow_pickle = True)
+
     if isDirectory:
-        ann         = Annotator(load_bg_from_file='_gitignore/pcd_files/unified/unified_background_000.pcd')
-        output_dir  = '_gitignore/pickle_files/pointgroup/'
-        ann.annotate_batch(folder_name = file_dir, output_dir = output_dir , percentages = [0.6,0.2,0.2])
+        ann         = Annotator(load_bg_from_file='_gitignore/Dataset/p1/full_light/background/combined_bg2.pcd')
+        output_dir  = '_gitignore/Dataset/p1/full_light/robotNet/'
+        ann.annotate_batch(folder_name = file_dir, output_dir = output_dir , percentages = [0.6,0.2,0.2], conversion_type = 'robotNet', joint_states_data = joint_states, write_pcd = True)
+        log.info("Visualizing are done")
         sys.exit()
 
     target_data = Data(file_dir)

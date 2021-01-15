@@ -11,12 +11,13 @@ from sensor_msgs.msg import PointCloud2
 
 
 output_folder = '_gitignore/depth_registered_files/'
-output_file   = 'moving_001'
+output_file   = 'TEST_moving_001'
 output_ext    = '.pickle'
 output_full   = output_folder + output_file + output_ext
 
 output = open(output_full,'wb')
 i      = 1
+
 def callback(data):
     global i
     print('Frame No: ',i)

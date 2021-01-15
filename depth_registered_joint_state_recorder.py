@@ -24,7 +24,7 @@ rospy.init_node('depth_registered_joint_state_recorder')
 depth_registered_sub = message_filters.Subscriber('/camera/depth_registered/points', PointCloud2)
 joint_state_sub = message_filters.Subscriber('/franka_state_controller/joint_states', JointState)
 
-ts = message_filters.ApproximateTimeSynchronizer([depth_registered_sub, joint_state_sub], 10000, slop=0.01)
+ts = message_filters.ApproximateTimeSynchronizer([depth_registered_sub, joint_state_sub], 100, slop=0.05)
 ts.registerCallback(callback)
 rospy.spin()
 
