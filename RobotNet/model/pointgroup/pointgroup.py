@@ -301,9 +301,9 @@ class PointGroup(nn.Module):
             # proposals_offset: (nProposal + 1), int
 
             proposals_idx_shift[:, 0] += (proposals_offset.size(0) - 1)
-            proposals_offset_shift += proposals_offset[-1]
-            proposals_idx = torch.cat((proposals_idx, proposals_idx_shift), dim=0)
-            proposals_offset = torch.cat((proposals_offset, proposals_offset_shift[1:]))
+            proposals_offset_shift    += proposals_offset[-1]
+            proposals_idx              = torch.cat((proposals_idx, proposals_idx_shift), dim=0)
+            proposals_offset           = torch.cat((proposals_offset, proposals_offset_shift[1:]))
 
             #### proposals voxelization again
             input_feats, inp_map = self.clusters_voxelization(proposals_idx, proposals_offset, output_feats, coords, self.score_fullscale, self.score_scale, self.mode)
