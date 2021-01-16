@@ -282,7 +282,7 @@ class RobotNet(nn.Module):
         return voxelization_feats, inp_map
 
 
-    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch):
+    def forward(self, input, input_map, coords, batch_idxs, batch_offsets,file_names,epoch):
         #Params: input_, p2v_map,  coords_float, coords[:, 0].int(), batch_offsets, epoch
 
         '''
@@ -311,6 +311,7 @@ class RobotNet(nn.Module):
             pcd              = o3d.geometry.PointCloud()
             arm_regress_list = list()
             for ii in range(len(batch_offsets)-1):
+                print('Current file is: ', file_names[ii])
                 batch_coords = coords[batch_offsets[ii]:batch_offsets[ii+1]]
                 arm_mask     = semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1
                 arm_points   = batch_coords[arm_mask]
@@ -340,7 +341,7 @@ class RobotNet(nn.Module):
                 arm_regress     = self.regression(new_arm_points)
                 arm_regress_list.append(arm_regress)
 
-        ret['arm_regress'] = arm_regress_list
+            ret['arm_regress'] = arm_regress_list
 
         """
         #Onur: Removing unnessary parts
@@ -455,11 +456,11 @@ def model_fn_decorator(test=False):
         #p2v_map: N points -> M voxels (Use it with p2v_map.cpu().numpy(), its the combination of #batch_size scenes)
         #v2p_map: M_voxels -> N points (Use it with v2p_map.cpu().numpy(), its the combination of #batch_size scenes)
 
-
+        file_names      = batch['file_names']
         coords_float    = batch['locs_float'].cuda()      # (N, 3), float32, cuda
         feats           = batch['feats'].cuda().float()   # (N, C), float32, cuda
+        poses           = batch['poses'].cuda().float()   # (B,7), float32, cuda
         labels          = batch['labels'].cuda()          # (N), long, cuda
-        #arm_labels      = batch['arm_labels'].cuda()     # (B, 7), long, cuda
         instance_labels = batch['instance_labels'].cuda() # (N), long, cuda, 0~total_nInst, -100
 
         instance_info     = batch['instance_info'].cuda()          # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
@@ -476,12 +477,13 @@ def model_fn_decorator(test=False):
         #This just generates the sparse convolution object. The object can be used with sparse convolutions.
         input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
         start1 = time.time()
-        ret    = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch)
+        ret    = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets,file_names, epoch)
         end1   = time.time() - start1
 
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
 
-        arm_regress = ret['arm_regress']
+
+
 
         """
         #Onur: Removing unnessary parts
@@ -500,7 +502,10 @@ def model_fn_decorator(test=False):
 
         loss_inp = {}
         loss_inp['semantic_scores'] = (semantic_scores, labels)
-        loss_inp['arm_regress']     = (arm_regress, arm_labels)
+
+        if(epoch > cfg.prepare_epochs):
+            arm_regress = ret['arm_regress']
+            loss_inp['arm_regress']     = (arm_regress, poses)
 
         """
         #Onur: Removing unnessary parts
@@ -549,8 +554,6 @@ def model_fn_decorator(test=False):
 
         '''semantic loss'''
         semantic_scores, semantic_labels = loss_inp['semantic_scores']
-        arm_regress, arm_labels          = loss_inp['arm_regress']
-
         # semantic_scores: (N, nClass), float32, cuda
         # semantic_labels: (N), long, cuda
 
@@ -558,10 +561,16 @@ def model_fn_decorator(test=False):
         loss_out['semantic_loss'] = (semantic_loss, semantic_scores.shape[0])
 
         if (epoch > cfg.prepare_epochs):
-        '''regression loss'''
-        #To-do: implement regression_loss
-        # loss_fn = torch.nn.MSELoss(reduction='sum')
-        #loss_out['regression_loss'] = (regression_loss, )
+            arm_regress, poses          = loss_inp['arm_regress']
+            batch_size  = len(arm_regress)
+            regression_loss = 0
+            loss_func = nn.MSELoss(reduction = 'sum')
+            for i in range(batch_size):
+                pose = poses[i*7:(i+1)*7 ]
+                regression_loss += loss_func(arm_regress[i].reshape(1,7),pose.reshape(1,7))
+            
+           
+            loss_out['regression_loss'] = (regression_loss, batch_size)
 
         """
         #Onur: Removing unnessary parts
@@ -611,12 +620,18 @@ def model_fn_decorator(test=False):
 
         '''total loss'''
 
-        loss = cfg.loss_weight[0] * semantic_loss 
+        loss = cfg.loss_weight[0] * semantic_loss  
+
+
+        if(epoch > cfg.prepare_epochs):
+            loss +=  cfg.loss_weight[1] * regression_loss
+
 
         """
         #Onur: Removing unnessary parts
         loss = cfg.loss_weight[0] * semantic_loss + cfg.loss_weight[1] * offset_norm_loss + cfg.loss_weight[2] * offset_dir_loss
         """
+
 
         """
         #Onur: Removing unnessary parts of the model

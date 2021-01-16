@@ -167,14 +167,16 @@ class Dataset:
 
         with open(curr_file_name, 'rb') as f:
             x = pickle.load(f)
-            return x
+            return x,curr_file_name
 
     def trainMerge(self, id):
         locs            = []
         locs_float      = []
         feats           = []
+        poses           = []
         labels          = []
         instance_labels = []
+        file_names      = []
         instance_infos    = []  # (N, 9)
         instance_pointnum = []  # (total_nInst), int
         batch_offsets     = [0]
@@ -187,8 +189,8 @@ class Dataset:
         self.scale = self.scale if augment else 1
 
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = self.get_data(idx,'train')
-            print('Batch Scene No: ', i, 'Size is: ', xyz_origin.shape)
+            (xyz_origin, rgb, label, instance_label,pose),file_name = self.get_data(idx,'train')
+            #print('Batch Scene No: ', i, 'Size is: ', xyz_origin.shape)
 
             ### jitter / flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, augment, augment, augment)
@@ -232,7 +234,9 @@ class Dataset:
             locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1)) #Cok garip birsey
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
+            poses.append(torch.from_numpy(pose))
             labels.append(torch.from_numpy(label))
+            file_names.append(file_name)
             instance_labels.append(torch.from_numpy(instance_label))
 
             instance_infos.append(torch.from_numpy(inst_info))
@@ -246,6 +250,7 @@ class Dataset:
         locs_float  = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
 
         feats           = torch.cat(feats, 0)                              # float (N, C)
+        poses           = torch.cat(poses,0)
         labels          = torch.cat(labels, 0).long()                     # long (N)
         instance_labels = torch.cat(instance_labels, 0).long()   # long (N)
 
@@ -263,7 +268,7 @@ class Dataset:
         return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
                 'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
                 'instance_info': instance_infos, 'instance_pointnum': instance_pointnum,
-                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape}
+                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape, 'poses': poses,'file_names':file_names}
 
 
     def valMerge(self, id):
@@ -272,6 +277,7 @@ class Dataset:
         feats           = []
         labels          = []
         instance_labels = []
+        poses           = []
 
         instance_infos = []  # (N, 9)
         instance_pointnum = []  # (total_nInst), int
@@ -280,7 +286,7 @@ class Dataset:
 
         total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = self.get_data(idx,'val')
+            xyz_origin, rgb, label, instance_label,pose = self.get_data(idx,'val')
 
             ### flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, False, True, True)
@@ -314,6 +320,7 @@ class Dataset:
             locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1))
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb))
+            poses.append(torch.from_numpy(pose))
             labels.append(torch.from_numpy(label))
             instance_labels.append(torch.from_numpy(instance_label))
 
@@ -326,6 +333,7 @@ class Dataset:
         locs = torch.cat(locs, 0)                                  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
         locs_float = torch.cat(locs_float, 0).to(torch.float32)    # float (N, 3)
         feats = torch.cat(feats, 0)                                # float (N, C)
+        poses           = torch.cat(poses,0)
         labels = torch.cat(labels, 0).long()                       # long (N)
         instance_labels = torch.cat(instance_labels, 0).long()     # long (N)
 
@@ -340,7 +348,7 @@ class Dataset:
         return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
                 'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
                 'instance_info': instance_infos, 'instance_pointnum': instance_pointnum,
-                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape}
+                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape, 'poses': poses}
 
 
     def testMerge(self, id):
