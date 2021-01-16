@@ -47,7 +47,10 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
         torch.cuda.empty_cache()
 
         ##### adjust learning rate
-        utils.step_learning_rate(optimizer, cfg.lr, epoch - 1, cfg.step_epoch, cfg.multiplier)
+        if epoch > cfg.prepare_epochs:
+            utils.step_learning_rate(optimizer, cfg.lr * 0.01, epoch - 1, cfg.step_epoch, cfg.multiplier)
+        else:
+            utils.step_learning_rate(optimizer, cfg.lr, epoch - 1, cfg.step_epoch, cfg.multiplier)
 
         ##### prepare input and forward
         loss, _, visual_dict, meter_dict = model_fn(batch, model, epoch)
@@ -59,9 +62,12 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
             am_dict[k].update(v[0], v[1])
 
         ##### backward
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        optimizer.zero_grad() 
+
+        if loss.grad_fn != None:
+
+            loss.backward()
+            optimizer.step()
 
         ##### time and print
         current_iter = (epoch - 1) * len(train_loader) + i + 1

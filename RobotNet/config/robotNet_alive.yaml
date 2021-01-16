@@ -32,7 +32,7 @@ STRUCTURE:
   max_point_lim: 512
 
 TRAIN:
-  epochs: 30
+  epochs: 40
   train_workers: 16 # data loader workers
   optim: Adam # Adam or SGD
   lr: 0.001
@@ -61,7 +61,7 @@ GROUP:
   cluster_shift_meanActive: 300
   cluster_npoint_thre: 50
 
-  prepare_epochs: 10 #prepare_epochs: 128
+  prepare_epochs: 5 #prepare_epochs: 128
 
 TEST:
   split: val

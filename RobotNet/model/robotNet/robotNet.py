@@ -312,9 +312,9 @@ class RobotNet(nn.Module):
         semantic_preds         = semantic_scores.max(1)[1]# (N), long
         #print('Semantic Prediction shape is: ', semantic_preds.shape)
         ret['semantic_scores'] = semantic_scores
-        for ii in range(len(batch_offsets)-1):
-            print('Passing the file: ', file_names[ii],' ' ,
-            sum(semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1))
+        #for ii in range(len(batch_offsets)-1):
+            #print('Passing the file: ', file_names[ii],' ' ,
+            #sum(semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1))
 
         #ret['unet_time'] = time.time()
 
@@ -346,7 +346,8 @@ class RobotNet(nn.Module):
 
                 #we should update
                 else:
-                    print('Passing the file: ', file_names[ii],' ' ,length)
+                    #print('Passing the file: ', file_names[ii],' ' ,length)
+                    arm_regress_list.append(-1)
                     continue
                     #ind      = np.random.choice(length, self.max_point_lim)
                     #down_pcd = vox_pcd.select_by_index(inds)
@@ -422,10 +423,16 @@ def model_fn_decorator(test=False):
     from util.config import cfg
 
     #### criterion
-    semantic_criterion = nn.CrossEntropyLoss(ignore_index=cfg.ignore_label).cuda()
-    score_criterion = nn.BCELoss(reduction='none').cuda()
+    weights       = [1, 20.0] #as class distribution
+    class_weights = torch.FloatTensor(weights).cuda()
+
+    semantic_criterion   = nn.CrossEntropyLoss(weight=class_weights, ignore_index=cfg.ignore_label).cuda()
+    regression_criterion = nn.MSELoss(reduction = 'sum').cuda()
+    score_criterion      = nn.BCELoss(reduction='none').cuda()
 
     def test_model_fn(batch, model, epoch):
+
+        ############ CHECK THIS FOR ADDING THE REGRESSION LOSS
         coords = batch['locs'].cuda()              # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
         voxel_coords = batch['voxel_locs'].cuda()  # (M, 1 + 3), long, cuda
         p2v_map = batch['p2v_map'].cuda()          # (N), int, cuda
@@ -580,10 +587,18 @@ def model_fn_decorator(test=False):
             arm_regress, poses          = loss_inp['arm_regress']
             batch_size  = len(arm_regress)
             regression_loss = 0
-            loss_func = nn.MSELoss(reduction = 'sum')
+
             for i in range(batch_size):
+
+                if type(arm_regress[i]) == int: #Continue if this pose has lower than max_lim_point point
+                    continue
+
                 pose = poses[i*7:(i+1)*7 ]
-                regression_loss += loss_func(arm_regress[i].reshape(1,7),pose.reshape(1,7))
+                regression_loss += regression_criterion(arm_regress[i].reshape(1,7),pose.reshape(1,7))
+
+            if type(regression_loss) == int:
+                pose = poses[0*7:(0+1)*7 ]
+                regression_loss = regression_criterion(pose.reshape(1,7),pose.reshape(1,7))
 
 
             loss_out['regression_loss'] = (regression_loss, batch_size)
