@@ -185,8 +185,7 @@ class Dataset:
         self.iteration_cnt += 1
         self.epoch          = math.ceil(self.iteration_cnt/self.batch_cnt)
         augment             = self.epoch  < self.prepare_epochs
-
-        self.scale = self.scale if augment else 1
+        self.scale          = self.scale if augment else 1
 
         for i, idx in enumerate(id):
             (xyz_origin, rgb, label, instance_label,pose),file_name = self.get_data(idx,'train')
@@ -213,9 +212,6 @@ class Dataset:
 
             xyz_middle     = xyz_middle[valid_idxs]
             xyz            = xyz[valid_idxs]
-
-
-
             rgb            = rgb[valid_idxs]
             label          = label[valid_idxs]
             instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
@@ -272,24 +268,26 @@ class Dataset:
 
 
     def valMerge(self, id):
-        locs            = []
-        locs_float      = []
-        feats           = []
-        labels          = []
-        instance_labels = []
-        poses           = []
-
-        instance_infos = []  # (N, 9)
+        locs              = []
+        locs_float        = []
+        feats             = []
+        labels            = []
+        instance_labels   = []
+        poses             = []
+        file_names      = []
+        batch_offsets     = [0]
+        total_inst_num    = 0
+        instance_infos    = []  # (N, 9)
         instance_pointnum = []  # (total_nInst), int
 
-        batch_offsets = [0]
+        augment             = self.epoch  < self.prepare_epochs
+        
 
-        total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label,pose = self.get_data(idx,'val')
+            (xyz_origin, rgb, label, instance_label, pose),file_name = self.get_data(idx,'val')
 
             ### flip x / rotation
-            xyz_middle = self.dataAugment(xyz_origin, False, True, True)
+            xyz_middle = self.dataAugment(xyz_origin, augment, augment, augment)
 
             ### scale
             xyz = xyz_middle * self.scale
@@ -308,8 +306,8 @@ class Dataset:
 
             ### get instance information
             inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32))
-            inst_info = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-            inst_pointnum = inst_infos["instance_pointnum"]  # (nInst), list
+            inst_info            = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+            inst_pointnum        = inst_infos["instance_pointnum"]  # (nInst), list
 
             instance_label[np.where(instance_label != -100)] += total_inst_num
             total_inst_num += inst_num
@@ -322,6 +320,7 @@ class Dataset:
             feats.append(torch.from_numpy(rgb))
             poses.append(torch.from_numpy(pose))
             labels.append(torch.from_numpy(label))
+            file_names.append(file_name)
             instance_labels.append(torch.from_numpy(instance_label))
 
             instance_infos.append(torch.from_numpy(inst_info))
@@ -348,19 +347,20 @@ class Dataset:
         return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
                 'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
                 'instance_info': instance_infos, 'instance_pointnum': instance_pointnum,
-                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape, 'poses': poses}
+                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape, 'poses': poses,'file_names': file_names}
 
 
     def testMerge(self, id):
-        locs = []
-        locs_float = []
-        feats = []
-
+        locs          = []
+        locs_float    = []
+        feats         = []
         batch_offsets = [0]
+        poses         = []
+
 
         for i, idx in enumerate(id):
             if self.test_split == 'val':
-                xyz_origin, rgb, label, instance_label = self.get_data(idx,'val')
+                xyz_origin, rgb, label, instance_label, pose= self.get_data(idx,'val')
 
             elif self.test_split == 'test':
                 xyz_origin, rgb, _,__ = self.get_data(idx,'test')

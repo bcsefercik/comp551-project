@@ -165,8 +165,6 @@ if __name__ == '__main__':
     model_fn = model_fn_decorator()
 
     ##### dataset
-
-
     if cfg.dataset == 'scannetv2':
         if data_name == 'scannet':
             import data.scannetv2_inst

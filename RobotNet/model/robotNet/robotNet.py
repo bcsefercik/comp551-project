@@ -222,6 +222,15 @@ class RobotNet(nn.Module):
             for m in self.pretrain_module:
                 print("Load pretrained " + m + ": %d/%d" % utils.load_model_param(module_map[m], pretrain_dict, prefix=m))
 
+    def freeze_unet(self):
+        for param in self.input_conv.parameters():
+            param.requires_grad = False
+        for param in self.unet.parameters():
+            param.requires_grad = False
+        for param in self.output_layer.parameters():
+            param.requires_grad = False
+        for param in self.linear.parameters():
+            param.requires_grad = False
 
     @staticmethod
     def set_bn_init(m):
@@ -303,15 +312,21 @@ class RobotNet(nn.Module):
         semantic_preds         = semantic_scores.max(1)[1]# (N), long
         #print('Semantic Prediction shape is: ', semantic_preds.shape)
         ret['semantic_scores'] = semantic_scores
+        for ii in range(len(batch_offsets)-1):
+            print('Passing the file: ', file_names[ii],' ' ,
+            sum(semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1))
 
         #ret['unet_time'] = time.time()
+
+        if epoch > self.prepare_epochs:
+            self.freeze_unet()
 
         ##### Extracting Arm 
         if epoch > self.prepare_epochs:
             pcd              = o3d.geometry.PointCloud()
             arm_regress_list = list()
             for ii in range(len(batch_offsets)-1):
-                print('Current file is: ', file_names[ii])
+                #print('Current file is: ', file_names[ii])
                 batch_coords = coords[batch_offsets[ii]:batch_offsets[ii+1]]
                 arm_mask     = semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1
                 arm_points   = batch_coords[arm_mask]
@@ -331,11 +346,13 @@ class RobotNet(nn.Module):
 
                 #we should update
                 else:
-                    ind      = np.random.choice(length, self.max_point_lim)
-                    down_pcd = vox_pcd.select_by_index(ind)
+                    print('Passing the file: ', file_names[ii],' ' ,length)
+                    continue
+                    #ind      = np.random.choice(length, self.max_point_lim)
+                    #down_pcd = vox_pcd.select_by_index(inds)
+
 
                 points       = np.asarray(down_pcd.points).reshape(-1)
-
 
                 new_arm_points  = torch.from_numpy(points).float().to(device)
                 arm_regress     = self.regression(new_arm_points)
@@ -543,9 +560,7 @@ def model_fn_decorator(test=False):
             meter_dict['loss'] = (loss.item(), coords.shape[0])
             for k, v in loss_out.items():
                 meter_dict[k] = (float(v[0]), v[1])
-
         return loss, preds, visual_dict, meter_dict
-
 
     def loss_fn(loss_inp, epoch):
 
@@ -557,10 +572,11 @@ def model_fn_decorator(test=False):
         # semantic_scores: (N, nClass), float32, cuda
         # semantic_labels: (N), long, cuda
 
-        semantic_loss             = semantic_criterion(semantic_scores, semantic_labels)
-        loss_out['semantic_loss'] = (semantic_loss, semantic_scores.shape[0])
+        if epoch <= cfg.prepare_epochs:
+            semantic_loss             = semantic_criterion(semantic_scores, semantic_labels)
+            loss_out['semantic_loss'] = (semantic_loss, semantic_scores.shape[0])
 
-        if (epoch > cfg.prepare_epochs):
+        else:
             arm_regress, poses          = loss_inp['arm_regress']
             batch_size  = len(arm_regress)
             regression_loss = 0
@@ -568,8 +584,8 @@ def model_fn_decorator(test=False):
             for i in range(batch_size):
                 pose = poses[i*7:(i+1)*7 ]
                 regression_loss += loss_func(arm_regress[i].reshape(1,7),pose.reshape(1,7))
-            
-           
+
+
             loss_out['regression_loss'] = (regression_loss, batch_size)
 
         """
@@ -620,12 +636,12 @@ def model_fn_decorator(test=False):
 
         '''total loss'''
 
-        loss = cfg.loss_weight[0] * semantic_loss  
-
 
         if(epoch > cfg.prepare_epochs):
-            loss +=  cfg.loss_weight[1] * regression_loss
+            loss =  cfg.loss_weight[1] * regression_loss
 
+        else:
+            loss = cfg.loss_weight[0] * semantic_loss
 
         """
         #Onur: Removing unnessary parts
