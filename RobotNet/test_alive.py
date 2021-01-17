@@ -56,9 +56,12 @@ def test(model, model_fn, data_name, epoch):
             from data.alivev1_inst import Dataset
             dataset = Dataset(test=True)
             dataset.testLoader()
+            dataset.valLoader()
         else:
             print("Error: no data loader - " + data_name)
             exit(0)
+
+
 
     dataloader = dataset.test_data_loader
 
@@ -79,10 +82,14 @@ def test(model, model_fn, data_name, epoch):
             semantic_scores = preds['semantic']  # (N, nClass=20) float32, cuda
             semantic_pred = semantic_scores.max(1)[1]  # (N) long, cuda
 
+            """
+            Onur: removing unncessary parts
             pt_offsets = preds['pt_offsets']    # (N, 3), float32, cuda
-
+            """
 
             if (epoch > cfg.prepare_epochs):
+                """
+                Onur: Removing unncessary parts
                 scores = preds['score']   # (nProposal, 1) float, cuda
                 scores_pred = torch.sigmoid(scores.view(-1))
 
@@ -125,6 +132,7 @@ def test(model, model_fn, data_name, epoch):
                 cluster_semantic_id = semantic_id[pick_idxs]
 
                 nclusters = clusters.shape[0]
+                """
 
                 ##### prepare for evaluation
                 if cfg.eval:
@@ -154,8 +162,6 @@ def test(model, model_fn, data_name, epoch):
                             else:
                                 label_mask.append(0)
                         masks.append(label_mask)
-
-
 
                     pred_info['mask'] = np.array(masks,dtype='int32')
                     gt_file = os.path.join(cfg.data_root, cfg.dataset, cfg.split + '_gt', test_scene_name + '.txt')
@@ -237,9 +243,13 @@ if __name__ == '__main__':
     if model_name == 'pointgroup':
         from model.pointgroup.pointgroup import PointGroup as Network
         from model.pointgroup.pointgroup import model_fn_decorator
+    elif model_name == 'robotNet':
+        from model.robotNet.robotNet import RobotNet as Network
+        from model.robotNet.robotNet import model_fn_decorator
     else:
         print("Error: no model version " + model_name)
         exit(0)
+
     model = Network(cfg)
 
     use_cuda = torch.cuda.is_available()

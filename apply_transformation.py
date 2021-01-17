@@ -6,13 +6,11 @@ folder_name       = 'RobotNet/dataset/alivev1_raw_pose/train/'
 output_name       = 'RobotNet/dataset/alivev1/train'
 file_names        = [name for name in os.listdir(folder_name) if os.path.isdir(folder_name)]
 
-
 robot_to_kinect   = [0.524, 0.31, 0.936, 0.33650, 0.358586, -0.603734, 0.627441]
 
 robot_to_kinect_translation = PyKDL.Vector(robot_to_kinect[0], robot_to_kinect[1], robot_to_kinect[2]) 
 robot_to_kinect_rotation    = PyKDL.Vector(robot_to_kinect[3], robot_to_kinect[4], robot_to_kinect[5])
 robot_to_kinect_frame       = PyKDL.Frame(robot_to_kinect_translation, robot_to_kinect_rotation)
-
 
 def apply_transform(ee_pose):
     '''
