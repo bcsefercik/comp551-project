@@ -66,7 +66,7 @@ class Dataset:
 
     def testLoader(self):
         self.file_names[self.test_split] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix)))
-        self.file_cnt  =  len(self.file_names['test'])
+        self.file_cnt  =  len(self.file_names[self.test_split])
         self.batch_cnt = math.ceil(self.file_cnt / self.batch_size)
         test_set = list(np.arange(len(self.file_names[self.test_split])))
         self.test_data_loader = DataLoader(test_set, batch_size=1, collate_fn=self.testMerge, num_workers=self.test_workers,
@@ -164,10 +164,10 @@ class Dataset:
 
     def get_data(self,id,data_type):
         curr_file_name = self.file_names[data_type][id]
-
-        with open(curr_file_name, 'rb') as f:
-            x = pickle.load(f)
-            return x,curr_file_name
+        filehandler = open(curr_file_name, 'rb')
+        x = pickle.load(filehandler, encoding='bytes')
+        filehandler.close()
+        return x, curr_file_name
 
     def trainMerge(self, id):
         locs            = []
@@ -189,6 +189,7 @@ class Dataset:
 
         for i, idx in enumerate(id):
             (xyz_origin, rgb, label, instance_label,pose),file_name = self.get_data(idx,'train')
+            pose = np.array(pose)
             #print('Batch Scene No: ', i, 'Size is: ', xyz_origin.shape)
 
             ### jitter / flip x / rotation
@@ -274,7 +275,7 @@ class Dataset:
         labels            = []
         instance_labels   = []
         poses             = []
-        file_names      = []
+        file_names        = []
         batch_offsets     = [0]
         total_inst_num    = 0
         instance_infos    = []  # (N, 9)
@@ -285,7 +286,7 @@ class Dataset:
 
         for i, idx in enumerate(id):
             (xyz_origin, rgb, label, instance_label, pose),file_name = self.get_data(idx,'val')
-
+            pose = np.array(pose)
             ### flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, augment, augment, augment)
 
@@ -357,11 +358,12 @@ class Dataset:
         batch_offsets = [0]
         poses         = []
 
+        augment       = self.epoch  < self.prepare_epochs
 
         for i, idx in enumerate(id):
             if self.test_split == 'val':
-                xyz_origin, rgb, label, instance_label, pose= self.get_data(idx,'val')
-
+                (xyz_origin, rgb, label, instance_label, pose),file_name = self.get_data(idx,'val')
+                pose = np.array(pose)
             elif self.test_split == 'test':
                 xyz_origin, rgb, _,__ = self.get_data(idx,'test')
             else:
@@ -369,7 +371,7 @@ class Dataset:
                 exit(0)
 
             ### flip x / rotation
-            xyz_middle = self.dataAugment(xyz_origin, False, True, True)
+            xyz_middle = self.dataAugment(xyz_origin, augment, augment, augment)
 
             ### scale
             xyz = xyz_middle * self.scale
@@ -383,6 +385,7 @@ class Dataset:
             locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1))
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb))
+            poses.append(torch.from_numpy(pose))
 
         ### merge all the scenes in the batch
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
@@ -390,7 +393,7 @@ class Dataset:
         locs = torch.cat(locs, 0)                                         # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
         locs_float = torch.cat(locs_float, 0).to(torch.float32)           # float (N, 3)
         feats = torch.cat(feats, 0)                                       # float (N, C)
-
+        poses           = torch.cat(poses,0)
         spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None)  # long (3)
 
         ### voxelize
@@ -398,7 +401,7 @@ class Dataset:
 
         return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
                 'locs_float': locs_float, 'feats': feats,
-                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape}
+                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape, 'poses': poses}
 
 
 

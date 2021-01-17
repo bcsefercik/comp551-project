@@ -169,9 +169,9 @@ class RobotNet(nn.Module):
 
         self.regression = nn.Sequential(
                     nn.Linear(self.max_point_lim*3, self.fc1_hidden),
-                    nn.Tanh(),
+                    nn.ReLU(),
                     nn.Linear(self.fc1_hidden, self.fc2_hidden),
-                    nn.Tanh(),
+                    nn.ReLU(),
                     nn.Linear(self.fc2_hidden, self.regres_dim),
                 )
 
@@ -318,7 +318,7 @@ class RobotNet(nn.Module):
 
         #ret['unet_time'] = time.time()
 
-        if epoch > self.prepare_epochs:
+        if epoch == self.prepare_epochs:
             self.freeze_unet()
 
         ##### Extracting Arm 
@@ -440,7 +440,7 @@ def model_fn_decorator(test=False):
 
         coords_float = batch['locs_float'].cuda()  # (N, 3), float32, cuda
         feats = batch['feats'].cuda().float()              # (N, C), float32, cuda
-
+        poses = batch['poses'].cuda().float()
         batch_offsets = batch['offsets'].cuda()    # (B + 1), int, cuda
 
         spatial_shape = batch['spatial_shape']
@@ -449,21 +449,40 @@ def model_fn_decorator(test=False):
             feats = torch.cat((feats, coords_float), 1)
         voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.mode)  # (M, C), float, cuda
         input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
-        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch)
+        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets,None ,epoch)
         semantic_scores = ret['semantic_scores']  # (N, nClass) float32, cuda
+
+        """
+        Onur: Removing unncessary parts
         pt_offsets = ret['pt_offsets']            # (N, 3), float32, cuda
         if (epoch > cfg.prepare_epochs):
             scores, proposals_idx, proposals_offset = ret['proposal_scores']
+        """
 
         ##### preds
         with torch.no_grad():
             preds = {}
             preds['semantic'] = semantic_scores
-            preds['pt_offsets'] = pt_offsets
-            #preds['unet_time'] = ret['unet_time']
+
             if (epoch > cfg.prepare_epochs):
+                preds['regression'] = ret['arm_regress']
+
+            """
+            Onur: Removing unnessary parts
+            preds['pt_offsets'] = pt_offsets
+            """
+
+            #preds['unet_time'] = ret['unet_time']
+            """
+            Onur: removing unncessary parts
+            if (epoch > cfg.prepare_epochs):
+                
                 preds['score'] = scores
                 preds['proposals'] = (proposals_idx, proposals_offset)
+            """
+
+
+
         return preds
 
 

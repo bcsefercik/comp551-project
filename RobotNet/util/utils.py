@@ -49,7 +49,8 @@ def checkpoint_restore(model, exp_path, exp_name, use_cuda=True, epoch=0, dist=F
         model.cpu()
     if not f:
         if epoch > 0:
-            f = os.path.join(exp_path, exp_name + '-%09d'%epoch + '.pth')
+            f = os.path.join('exp/alivev1/pointgroup/pointgroup_alive/regression/trial/robotNet_alive-000000013.pth')
+            #f = os.path.join(exp_path, exp_name + '-%09d'%epoch + '.pth') #Change this
             assert os.path.isfile(f)
         else:
             f = sorted(glob.glob(os.path.join(exp_path, exp_name + '-*.pth')))

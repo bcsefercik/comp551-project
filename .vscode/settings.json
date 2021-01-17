@@ -1,3 +1,7 @@
 {
+<<<<<<< HEAD
     "python.pythonPath": "/usr/bin/python"
+=======
+    "python.pythonPath": "/home/onurberk/anaconda3/envs/pointgroup/bin/python"
+>>>>>>> 25af3f55a75b45dcc2515fcc9b77325883003864
 }

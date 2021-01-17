@@ -305,11 +305,10 @@ class Annotator:
     def distance_annotate(self, target_cloud, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1):
         '''
         Classifies 3D points into arm and background points
-            
         Args:
             param1 (Pointcloud)      : The background Pointcloud.
             param2 (Pointcloud)      : The target Pointcloud set that is being annotated.
-            
+
         Returns:
             nparray: returns array of integer containing indices of the robot arm points.
         '''
