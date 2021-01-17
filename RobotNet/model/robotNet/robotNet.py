@@ -506,9 +506,6 @@ def model_fn_decorator(test=False):
 
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
 
-
-
-
         """
         #Onur: Removing unnessary parts
         pt_offsets = ret['pt_offsets']           # (N, 3), float32, cuda
