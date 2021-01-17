@@ -44,13 +44,13 @@ class Data:
     '''
     def __init__(self, pcd_path):
 
-        self.pcd          = o3d.io.read_point_cloud(pcd_path)
-        self.arm_ind      = None
-        self.bg_ind       = None
-        self.arm_pcd      = None
-        self.arm_rec_pcd  = None
-        self.label_mask   = None
-        self.joint_states = None
+        self.pcd         = o3d.io.read_point_cloud(pcd_path)
+        self.arm_ind     = None
+        self.bg_ind      = None
+        self.arm_pcd     = None
+        self.arm_rec_pcd = None
+        self.label_mask  = None
+        self.pose        = None
 
 
     def convert_to_pointgroup(self):
@@ -80,8 +80,8 @@ class Data:
         label          = np.zeros(len(self.pcd.points))
         label[self.arm_ind] = 1
         instance_label = np.zeros(len(self.pcd.points))
-        joint_states   = self.joint_states
-        return [xyz,rgb,label,instance_label,joint_states]
+        pose   = self.pose
+        return [xyz,rgb,label,instance_label,pose]
 
 
     def surface_reconstruct_arm_pcd(self, visualize=False, verbose=False, sampling_method='poisson_disk', filter_it=0):
@@ -247,7 +247,10 @@ class Annotator:
         '''
         self.bg_samples = bg_data[0]
 
-    def annotate_batch(self, folder_name = None,output_dir = None,percentages = [0.6,0.2,0.2], bg_pcl=None, conversion_type = 'pointgroup', joint_states_data = None, write_pcd = False):
+    def pose_to_arr(self,pose):
+        return np.array([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w])
+
+    def annotate_batch(self, folder_name = None,output_dir = None,percentages = [0.6,0.2,0.2], bg_pcl=None, conversion_type = 'pointgroup', pose_data = None, write_pcd = False):
 
         if bg_pcl is not None:
             self.bg_pcl = bg_pcl
@@ -255,7 +258,7 @@ class Annotator:
         files    = [f for f in listdir(folder_name) if isfile(join(folder_name, f))]
         n_sample = len(files)
 
-        assert n_sample == joint_states_data.shape[0]
+        assert n_sample == pose_data.shape[0]
 
         samples = np.random.choice(3,n_sample,p=percentages)
         int2str = ['train', 'val','test']
@@ -269,7 +272,8 @@ class Annotator:
             if len(data.arm_ind) < 256:
                 continue
 
-            data.joint_states = joint_states_data[i]
+            data.pose = pose_data[i]
+            data.pose = self.pose_to_arr(data.pose)
             data.update_arm_pcl_from_ind()
             output     = output_dir + int2str[samples[i]] + '/' + files[i].strip('.pcd')
             output_pcd = output_dir + 'arm_pcl/' + files[i]
@@ -337,12 +341,12 @@ if __name__ == "__main__":
     file_dir    = '_gitignore/Dataset/p1/full_light/raw_perception_pcl/'
     isDirectory = isdir(file_dir)
 
-    joint_states = np.load('_gitignore/Dataset/p1/full_light/ee_poses.npy', allow_pickle = True)
+    poses = np.load('_gitignore/Dataset/p1/full_light/ee_poses.npy', allow_pickle = True)
 
     if isDirectory:
         ann         = Annotator(load_bg_from_file='_gitignore/Dataset/p1/full_light/background/combined_bg2.pcd')
         output_dir  = '_gitignore/Dataset/p1/full_light/robotNet/'
-        ann.annotate_batch(folder_name = file_dir, output_dir = output_dir , percentages = [0.6,0.2,0.2], conversion_type = 'robotNet', joint_states_data = joint_states, write_pcd = True)
+        ann.annotate_batch(folder_name = file_dir, output_dir = output_dir , percentages = [0.6,0.2,0.2], conversion_type = 'robotNet', pose_data = poses, write_pcd = True)
         log.info("Visualizing are done")
         sys.exit()
 
