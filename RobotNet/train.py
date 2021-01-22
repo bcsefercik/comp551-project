@@ -48,7 +48,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
 
         ##### adjust learning rate
         if epoch > cfg.prepare_epochs:
-            utils.step_learning_rate(optimizer, cfg.lr * 0.01, epoch - 1, cfg.step_epoch, cfg.multiplier)
+            utils.step_learning_rate(optimizer, cfg.regression_lr, epoch - 1 - cfg.prepare_epochs, cfg.step_epoch, cfg.multiplier, clip=1e-8)
         else:
             utils.step_learning_rate(optimizer, cfg.lr, epoch - 1, cfg.step_epoch, cfg.multiplier)
 

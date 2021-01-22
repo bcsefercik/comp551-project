@@ -3,7 +3,7 @@ GENERAL:
   manual_seed: 123
   model_dir: model/pointgroup/pointgroup.py
   dataset_dir: data/alivev1_inst.py
-  exp_path: 'exp/alivev1/pointgroup/pointgroup_alive/regression/trial_raw_3'
+  exp_path: 'exp/alivev1/pointgroup/pointgroup_alive/regression/trial_raw_8'
 
 DATA:
   data_root: dataset
@@ -25,17 +25,18 @@ STRUCTURE:
   m: 16 # 16 or 32
   block_residual: True
   block_reps: 2
-  fc1_hidden: 8192 #Number of hidden layers in layer 1
-  fc2_hidden: 8192 #Number of hidden layers in layer 2
+  fc1_hidden: 4096 #Number of hidden layers in layer 1
+  fc2_hidden: 4096 #Number of hidden layers in layer 2
   regres_dim: 7    #Number of regression values
   use_coords: True
   max_point_lim: 512
 
 TRAIN:
-  epochs: 40
+  epochs: 60
   train_workers: 16 # data loader workers
   optim: Adam # Adam or SGD
-  lr: 0.0001
+  lr: 0.001
+  regression_lr: 0.001
   step_epoch: 40 #Should same with epochs
   multiplier: 0.5
   momentum: 0.9
@@ -61,7 +62,7 @@ GROUP:
   cluster_shift_meanActive: 300
   cluster_npoint_thre: 50
 
-  prepare_epochs: 5 #prepare_epochs: 128
+  prepare_epochs: 30 #prepare_epochs: 128
 
 TEST:
   split: test

@@ -168,12 +168,15 @@ class RobotNet(nn.Module):
         self.linear = nn.Linear(m, classes) # bias(default): True
 
         self.regression = nn.Sequential(
-                    nn.Linear(self.max_point_lim*3, self.fc1_hidden),
-                    nn.ReLU(),
-                    nn.Linear(self.fc1_hidden, self.fc2_hidden),
-                    nn.ReLU(),
-                    nn.Linear(self.fc2_hidden, self.regres_dim),
-                )
+            nn.Linear(self.max_point_lim*3, self.fc1_hidden),
+            nn.ReLU(),
+            nn.Linear(self.fc1_hidden, self.fc2_hidden),
+            nn.ReLU(),
+            # nn.Linear(self.fc2_hidden, self.fc2_hidden),
+            # nn.ReLU(),
+            nn.Linear(self.fc2_hidden, self.regres_dim),
+            # nn.Linear(self.fc1_hidden, self.regres_dim),
+        )
 
         """
         Onur:Removing unnecssary parts
