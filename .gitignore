@@ -1,4 +1,7 @@
 # Specific folders
+venv/*
+dataset/*
+
 _gitignore
 PointGroup/dataset/
 PointGroup/exp/
