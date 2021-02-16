@@ -30,7 +30,9 @@ if does_this_machine_has_ros == True:
     from geometry_msgs.msg import Pose, PoseStamped
 
 
-joint_states = np.load('/home/onurberk/Desktop/COMP551_DATA/mv_recordings/joint_states.npy', allow_pickle=True)
+file_name = '/home/onurberk/Desktop/development/comp551-project/joint_states.npy'
+
+joint_states = np.load(file_name, allow_pickle=True)
 print(joint_states.shape)
 
 robot = Agent(sim=False, data_type='poses')

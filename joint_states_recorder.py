@@ -11,6 +11,7 @@ import numpy as np
 
 joint_states = list()
 def callback(data):
+    global joint_states
     joint_states.append(data)
 
 
@@ -21,10 +22,12 @@ def listener():
     rospy.spin()
 
 def myhook():
-    joint_states = np.array(joint_states)
-    np.save('joint_states',joint_states)
+    global joint_states
+    joint_states2 = np.array(joint_states)
+    np.save('joint_states', joint_states2)
     print('shutdown time!')
 
 if __name__ == '__main__':
     rospy.on_shutdown(myhook)
+    print("Starting recording...")
     listener()
