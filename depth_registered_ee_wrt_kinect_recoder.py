@@ -6,7 +6,7 @@ from roslib import message
 import pickle
 
 
-output_folder = '_gitignore/Dataset/p1/full_light/'
+output_folder = '_gitignore/Dataset/p1/half_light/'
 output_file   = 'perception_ee_poses_wrt_kinect'
 output_ext    = '.pickle'
 output_full   = output_folder + output_file + output_ext

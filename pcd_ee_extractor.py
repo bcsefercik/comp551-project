@@ -187,19 +187,19 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 
 if __name__ == "__main__":
-
-    input_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/perception_ee_poses_wrt_kinect.pickle'
+    common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
+    input_path = common_path + 'perception_ee_poses_wrt_kinect.pickle'
     input_file = open(input_path,'rb')
 
-    output_folder   = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/pcd_ee/'
+    output_folder = common_path + 'pcd_ee/'
 
-    i = 1
+    i = 0
     while True:
         try:
-            i = i+1
+            i += 1
             point_cloud,ee_pose = pickle.load(input_file)
-            if i %100 != 0:
-                continue
+            # if i %100 != 0:
+            #    continue
             pcd_full = output_folder + str(i) + '.pcd'
             ee_full  = output_folder + str(i)
             print("Output: ", pcd_full)

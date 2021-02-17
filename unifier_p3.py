@@ -10,10 +10,11 @@ import numpy as np
 from depth_registered_to_pcl import write_pcd
 
 
+common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
 
-path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/background/'
-#file_names = [f for f in listdir(path) if isfile(join(path, f))]
-file_names = ['BG_1.pcd', 'BG_5.pcd','BG_9.pcd']
+path = common_path + 'background/pcd'
+file_names = [f for f in listdir(path) if isfile(join(path, f)) and f[-4:] == ".pcd"]
+# file_names = ['BG_1.pcd', 'BG_5.pcd','BG_9.pcd']
 n_initial  = 0
 n_next     = 0
 
@@ -25,7 +26,7 @@ def load_pcd(file_name):
 def count_points(pcd_obj):
     return np.asarray(pcd_obj.points).shape[0]
 
-def update_frame(curr_background,next_background,removal_th = 0.02):
+def update_frame(curr_background, next_background, removal_th=0.01):
 
     dists                   = np.asarray(next_background.compute_point_cloud_distance(curr_background))
     point_mask              = dists > removal_th
@@ -49,7 +50,7 @@ percentages = [100]
 for i in range(1,len(file_names)):
     n_initial  = n_next
     next_frame = load_pcd(path + '/' + file_names[i])
-    background = update_frame(background,next_frame)
+    background = update_frame(background, next_frame)
     n_next     = count_points(background)
     print("Total Number of Points: ", n_next)
     percentages.append(find_added_percentage(n_initial,n_next))
@@ -66,5 +67,5 @@ if apply_downsampling == True:
 
 
 
-output_file = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/background/combined_bg2.pcd'
+output_file = common_path + 'background/combined_bg2.pcd'
 o3d.io.write_point_cloud(output_file, background, write_ascii=False, compressed=False, print_progress=True)

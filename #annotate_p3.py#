@@ -340,11 +340,11 @@ if __name__ == "__main__":
 
     common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
     
-    file_dir    = common_path + 'raw_perception_pcl/'
+    file_dir    = common_path + 'pcd_ee/'
     isDirectory = isdir(file_dir)
 
-    poses = np.load(common_path + 'ee_poses.npy', allow_pickle = True)
-
+    #poses = np.load(common_path + 'ee_poses.npy', allow_pickle = True)
+    poses = None
     if isDirectory:
         ann         = Annotator(load_bg_from_file=common_path + 'background/combined_bg2.pcd')
         output_dir  = common_path + 'robotNet/'
