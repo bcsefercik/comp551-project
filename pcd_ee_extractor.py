@@ -1,6 +1,7 @@
 import sensor_msgs.point_cloud2 as pc2
 import rospy
 import pickle
+import numpy as np
 from sensor_msgs.msg import PointCloud2, PointField
 
 
@@ -187,27 +188,25 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 if __name__ == "__main__":
 
-    input_folder = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/background/pcd/'
-    input_file   = 'background'
-    input_ext    = '.pickle'
-    input_full   = input_folder + input_file + input_ext
-    input_file   = open(input_full,'rb')
+    input_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/perception_ee_poses_wrt_kinect.pickle'
+    input_file = open(input_path,'rb')
 
-    output_folder   = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/background/pcd/'
-    output_file     = 'background'
-    output_ext      = '.pcd'
+    output_folder   = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/pcd_ee/'
 
     i = 1
     while True:
         try:
-            #point_cloud,_ = pickle.load(input_file)
-            point_cloud = pickle.load(input_file)
-            output_full = output_folder + output_file + '_' + str(i) + output_ext
-            print("Output: ", output_full)
-            pcl_obj = write_pcd(output_full, point_cloud, True)
-            del point_cloud
             i = i+1
-
+            point_cloud,ee_pose = pickle.load(input_file)
+            if i %100 != 0:
+                continue
+            pcd_full = output_folder + str(i) + '.pcd'
+            ee_full  = output_folder + str(i)
+            print("Output: ", pcd_full)
+            pcl_obj = write_pcd(pcd_full, point_cloud, True)
+            ee_pose = np.array([ee_pose.pose.position.x,ee_pose.pose.position.y,ee_pose.pose.position.z,ee_pose.pose.orientation.x,ee_pose.pose.orientation.y,ee_pose.pose.orientation.z,ee_pose.pose.orientation.w],dtype=np.float128)
+            np.save(ee_full, ee_pose)
+            del point_cloud
         except EOFError:
             print("Done...")
             break
