@@ -4,7 +4,7 @@
 '''
     annotate_p3.py: Data class and Annotator class for labeling data, storing, surface reconstruction, and filtering.
 
-    
+
 '''
 import sys
 assert sys.version_info[0] >= 3
@@ -23,7 +23,7 @@ from os.path import isfile,isdir, join
 
 from numpy.random import default_rng
 
-
+import ipdb
 
 
 
@@ -55,7 +55,7 @@ class Data:
 
     def convert_to_pointgroup(self):
         '''
-        Converts the current data to pointgroup data 
+        Converts the current data to pointgroup data
         '''
         xyz            = np.asarray(self.pcd.points)
         rgb            = np.asarray(self.pcd.colors)
@@ -70,7 +70,7 @@ class Data:
     def convert_to_robotNet(self):
 
         '''
-        Converts the current data to pointgroup data 
+        Converts the current data to pointgroup data
         '''
         xyz            = np.asarray(self.pcd.points)
         rgb            = np.asarray(self.pcd.colors)
@@ -99,7 +99,7 @@ class Data:
         self.arm_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.05, max_nn=10))
 
         log.info('run Poisson surface reconstruction.')
-        
+
         with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
             arm_mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(self.arm_pcd, depth=10)
 
@@ -152,7 +152,7 @@ class Data:
 
         '''
         self.arm_pcd = self.pcd.select_by_index(self.arm_ind)
-        
+
         # Selecting background
         #self.bg_pcd.select_by_index(arm_ind, invert=True)
 
@@ -164,12 +164,12 @@ class Data:
             log.error("This operation changes the main pcd file. You cannot perform this after annotation.")
             exit
 
-        if mode is "statistical":
-            cl, ind   = self.pcd.remove_statistical_outlier(nb_neighbors=40,std_ratio=2.0)
+        if mode == "statistical":
+            cl, ind = self.pcd.remove_statistical_outlier(nb_neighbors=40,std_ratio=2.0)
 
-        elif mode is "radious":
-            cl, ind   = self.pcd.remove_radius_outlier(nb_points=20, radius=0.01)
-            self.pcd  = self.pcd.select_by_index(ind)
+        elif mode == "radious":
+            cl, ind = self.pcd.remove_radius_outlier(nb_points=20, radius=0.01)
+            self.pcd = self.pcd.select_by_index(ind)
 
         else:
             log.error("Undefined sampling method")
@@ -205,7 +205,7 @@ class Data:
         Please refer to the robotnet/alive/data/alivev1_inst.py
         '''
 
-        data  = self.convert_to_robotNet()
+        data = self.convert_to_robotNet()
         pickle.dump(data, open(path + '.pickle', "wb"))
         del data
 
@@ -216,7 +216,7 @@ class Data:
         assert self.bg_ind.any()     != None
         assert self.label_mask.any() != None
 
-        dic = {}    
+        dic = {}
         dic['arm_ind']    = self.arm_ind
         dic['bg_ind' ]    = self.bg_ind
         dic['label_mask'] = self.label_mask
@@ -242,7 +242,7 @@ class Annotator:
     def set_background(self, bg_data):
         '''
             set background samples of the annotator
-                
+
             Note: some preprocessing steps on bg samples can be added here (e.g. adding aggregating frames)
         '''
         self.bg_samples = bg_data[0]
@@ -293,11 +293,11 @@ class Annotator:
     def annotate_single(self, target_data, bg_pcl=None):
         '''
         Args:
-            param1 (Data)  : The data sample to annotate. 
+            param1 (Data)  : The data sample to annotate.
         '''
         if bg_pcl is None:
             bg_pcl = self.bg_pcl
-        
+
         target_data.arm_ind, target_data.bg_ind, target_data.label_mask = self.distance_annotate(target_data.pcd, bg_pcl, removal_th=0.02, clip_depth=True, max_depth=1.0)
         target_data.update_arm_pcl_from_ind()
 
@@ -321,29 +321,35 @@ class Annotator:
 
             points    = np.asarray(target_cloud.points)
             #arm_mask  = np.logical_and(points[:,2] < max_depth ,  arm_mask) This is older version
-            arm_mask  = np.logical_and( points[:,0] <  0.5, arm_mask)
-            arm_mask  = np.logical_and( points[:,0] > -0.5, arm_mask)
-            arm_mask  = np.logical_and( points[:,1] <  0.2, arm_mask)
-            arm_mask  = np.logical_and( points[:,1] > -0.5, arm_mask)
-            arm_mask  = np.logical_and( points[:,2] <  1.0, arm_mask)
-               
+            arm_mask = np.logical_and(points[:, 0] < 1, arm_mask)  # x
+            arm_mask = np.logical_and(points[:, 0] > -0.5, arm_mask)
+            arm_mask = np.logical_and(points[:, 1] < 0.5, arm_mask)  # y
+            arm_mask = np.logical_and(points[:, 1] > -0.5, arm_mask)
+            arm_mask = np.logical_and(points[:, 2] < 0.8, arm_mask)
+
         return  np.where(arm_mask == True)[0], np.where(arm_mask == False)[0], arm_mask
 
 
 if __name__ == "__main__":
 
     # set some parameters
-    visualize       = False
+    visualize = True
     remove_outliers = False
-    reconstruct     = False
-    verbose         = True
+    reconstruct = False
+    verbose = True
 
-    common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
-    
-    file_dir    = common_path + 'raw_perception_pcl/'
+    # common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
+
+    common_path = "/home/bcs/Desktop/MSc/repos/comp551_project/dataset/new/p1/half_light/"
+
+    file_dir = common_path + 'pcd_ee/'
+
+    file_dir += "99.pcd"
+
     isDirectory = isdir(file_dir)
 
-    poses = np.load(common_path + 'ee_poses.npy', allow_pickle = True)
+    # poses = np.load(common_path + 'ee_poses.npy', allow_pickle = True)
+    poses = None
 
     if isDirectory:
         ann         = Annotator(load_bg_from_file=common_path + 'background/combined_bg2.pcd')
@@ -356,9 +362,8 @@ if __name__ == "__main__":
 
     log.info("Loading and annotating data.")
 
-    ann         = Annotator(load_bg_from_file='_gitignore/pcd_files/unified/unified_background_000.pcd')
+    ann = Annotator(load_bg_from_file=common_path + 'background/combined_bg2.pcd')
     target_data = ann.annotate_single(target_data)
-
 
     if remove_outliers:
         target_data.remove_outliers(mode="statistical")
@@ -366,11 +371,12 @@ if __name__ == "__main__":
     if visualize:
         log.info("visualizing the arm points.")
         o3d.visualization.draw_geometries([target_data.arm_pcd])
+        o3d.visualization.draw_geometries([target_data.pcd])
 
         if reconstruct:
             log.info("visualizing the reconstructed points.")
             o3d.visualization.draw_geometries([bg_cloud])
-            
+
     log.info("Saving the arm PCD.")
     target_data.write_arm_to_pcd("arm_cloud.pcd")
 
@@ -378,8 +384,8 @@ if __name__ == "__main__":
 
         log.info("Reconstructing the arm points.")
         target_data.surface_reconstruct_arm_pcd(visualize=False, verbose=verbose, sampling_method="uniform", filter_it=0)
-        
+
         log.info("Saving the arm PCD.")
         target_data.write_rec_arm_to_pcd("rec_arm_cloud.pcd")
-    
+
     target_data.write_labels_np("label_001")
