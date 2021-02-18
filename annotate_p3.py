@@ -9,7 +9,7 @@
 import sys
 assert sys.version_info[0] >= 3
 
-
+import os
 import open3d as o3d
 import numpy as np
 import pickle as pkl
@@ -18,7 +18,7 @@ import logging as log
 import sklearn.preprocessing as preprocessing
 import pickle
 from os import listdir
-from os.path import isfile,isdir, join
+from os.path import isfile, isdir, join
 
 
 from numpy.random import default_rng
@@ -250,7 +250,19 @@ class Annotator:
     def pose_to_arr(self,pose):
         return np.array([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w])
 
-    def annotate_batch(self, folder_name = None,output_dir = None,percentages = [0.6,0.2,0.2], bg_pcl=None, conversion_type = 'pointgroup', pose_data = None, write_pcd = False):
+    def annotate_batch(
+        self,
+        folder_name=None,
+        output_dir=None,
+        percentages=[0.6, 0.2, 0.2],
+        bg_pcl=None,
+        conversion_type='pointgroup',
+        pose_data=None,
+        write_pcd=False
+    ):
+
+        if not os.path.isdir(output_dir):
+            os.mkdir(output_dir)
 
         if bg_pcl is not None:
             self.bg_pcl = bg_pcl
@@ -258,7 +270,7 @@ class Annotator:
         files    = [f for f in listdir(folder_name) if isfile(join(folder_name, f)) and f[-4:] == ".pcd"]
         n_sample = len(files)
 
-        assert n_sample == pose_data.shape[0]
+        # assert n_sample == pose_data.shape[0]
 
         samples = np.random.choice(3,n_sample,p=percentages)
         int2str = ['train', 'val','test']
@@ -274,18 +286,26 @@ class Annotator:
             single_pose_data = np.load(folder_name + files[i][:-4] + '.npy', allow_pickle = True)
             # data.pose = pose_data[i]
             data.pose = single_pose_data
-            data.pose = self.pose_to_arr(data.pose)
+            # data.pose = self.pose_to_arr(data.pose)
             data.update_arm_pcl_from_ind()
-            output     = output_dir + int2str[samples[i]] + '/' + files[i].strip('.pcd')
-            output_pcd = output_dir + 'arm_pcl/' + files[i]
+
+            output = output_dir + int2str[samples[i]] + '/'
+            if not os.path.isdir(output):
+                os.mkdir(output)
+            output += files[i].strip('.pcd')
+
+            output_pcd = output_dir + 'arm_pcl/'
+            if not os.path.isdir(output_pcd):
+                os.mkdir(output_pcd)
+            output_pcd += files[i]
+
             if write_pcd:
                 data.write_arm_to_pcd(path=output_pcd)
 
-
             if conversion_type == 'pointgroup':
-                data.write_pointgroup_element(data,output)
+                data.write_pointgroup_element(data, output)
             elif conversion_type == 'robotNet':
-                data.write_robotNet_element(data,output)
+                data.write_robotNet_element(data, output)
             del data
 
 
@@ -344,7 +364,7 @@ if __name__ == "__main__":
 
     file_dir = common_path + 'pcd_ee/'
 
-    file_dir += "99.pcd"
+    # file_dir += "99.pdc"
 
     isDirectory = isdir(file_dir)
 
@@ -352,9 +372,16 @@ if __name__ == "__main__":
     poses = None
 
     if isDirectory:
-        ann         = Annotator(load_bg_from_file=common_path + 'background/combined_bg2.pcd')
-        output_dir  = common_path + 'robotNet/'
-        ann.annotate_batch(folder_name = file_dir, output_dir = output_dir , percentages = [0.6,0.2,0.2], conversion_type = 'robotNet', pose_data = poses, write_pcd = True)
+        ann = Annotator(load_bg_from_file=common_path + 'background/combined_bg2.pcd')
+        output_dir = common_path + 'robotNet/'
+        ann.annotate_batch(
+            folder_name=file_dir,
+            output_dir=output_dir,
+            percentages=[0.6, 0.2, 0.2],
+            conversion_type='robotNet',
+            pose_data=poses,
+            write_pcd=True
+        )
         log.info("Visualizing are done")
         sys.exit()
 
