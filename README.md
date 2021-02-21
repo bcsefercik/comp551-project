@@ -14,14 +14,29 @@ There are possible ways to record the kinect data, first one, the hardest, memor
 and faster method is to save the four different topic and generate the depth data later.
 The steps for that described below:
 
-* Recording
+* Recording (Robot EE wrt Kinect and Kinect) (AKA Robot EE + PointCloud)
+1. Start roscore, and then run:
+    ```roslaunch freenect_launch freenect.launch depth_registration:=true```
+
+2. Start Lfd to record robot end effector
+
+    ```roslaunch lfd_data lfd_nodes.launch```
+
+3. Start to rosbag to record:
+    ```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info  /robot/ee_pose_wrt_kinect```
+
+* Recording (Kinect) (AKA Background)
 1. Start roscore, and then run:
     ```roslaunch freenect_launch freenect.launch depth_registration:=true```
 
 2. Start to rosbag to record:
-    ```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info  /robot/ee_pose_wrt_kinect```
+    ```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info ```
 
-* Playback:
+* Playback (Recorded Movement)
+
+1. Please run the replay.py
+
+* Playback (A Bag File):
 1. Set simulation time:
     ```rosparam set /use_sim_time true```
 2. Close any running freenect driver and re-run as:

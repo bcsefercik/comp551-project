@@ -41,7 +41,7 @@ if does_this_machine_has_ros == True:
 
 
 import rosbag
-bag = rosbag.Bag('/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/2021-02-16-16-13-26.bag')
+bag = rosbag.Bag('/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/dark/2021-02-19-13-50-13.bag')
 for topic, msg, t in bag.read_messages(topics=['camera/depth_registered/image_raw']):
     print(topic, msg.header, t)
     print(50*'*')
