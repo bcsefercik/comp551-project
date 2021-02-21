@@ -187,7 +187,7 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 
 if __name__ == "__main__":
-    common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
+    common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/full_light/'
     input_path = common_path + 'perception_ee_poses_wrt_kinect.pickle'
     input_file = open(input_path,'rb')
 

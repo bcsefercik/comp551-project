@@ -23,7 +23,7 @@ from os.path import isfile, isdir, join
 
 from numpy.random import default_rng
 
-import ipdb
+# import ipdb
 
 
 
@@ -358,9 +358,9 @@ if __name__ == "__main__":
     reconstruct = False
     verbose = True
 
-    # common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
+    common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
 
-    common_path = "/home/bcs/Desktop/MSc/repos/comp551_project/dataset/new/p1/half_light/"
+    # common_path = "/home/bcs/Desktop/MSc/repos/comp551_project/dataset/new/p1/half_light/"
 
     file_dir = common_path + 'pcd_ee/'
 

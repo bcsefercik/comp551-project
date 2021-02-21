@@ -1,3 +1,5 @@
+
+
 """
 Given a folder with multiple pcd files it loads them and combine them to generate
 one pcd file
@@ -10,7 +12,7 @@ import numpy as np
 from depth_registered_to_pcl import write_pcd
 
 
-common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
+common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/dark/'
 
 path = common_path + 'background/pcd'
 file_names = [f for f in listdir(path) if isfile(join(path, f)) and f[-4:] == ".pcd"]

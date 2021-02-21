@@ -10,7 +10,7 @@ import pickle
 from sensor_msgs.msg import PointCloud2
 
 
-output_folder = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/background/pcd/'
+output_folder = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/dark/background/pcd/'
 output_file   = 'background'
 output_ext    = '.pickle'
 output_full   = output_folder + output_file + output_ext
