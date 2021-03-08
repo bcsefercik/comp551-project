@@ -50,7 +50,7 @@ def test(model, model_fn, data_name, epoch):
         else:
             print("Error: no data loader - " + data_name)
             exit(0)
-
+    print('ggggggg')
     elif cfg.dataset == 'alivev1':
         if data_name == 'alive':
             from data.alivev1_inst import Dataset
@@ -70,6 +70,7 @@ def test(model, model_fn, data_name, epoch):
         for i, batch in enumerate(dataloader):
             N = batch['feats'].shape[0]
             test_scene_name = dataset.file_names[cfg.split][int(batch['id'][0])].split('/')[-1].strip('.pickle')
+            logger.info(test_scene_name)
             start1 = time.time()
             preds = model_fn(batch, model, epoch)
             end1 = time.time() - start1

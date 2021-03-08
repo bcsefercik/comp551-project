@@ -9,6 +9,8 @@ import numpy as np
 import random
 import os
 
+import ipdb
+
 from util.config import cfg
 cfg.task = 'test'
 from util.log import logger
@@ -61,7 +63,7 @@ def test(model, model_fn, data_name, epoch):
             print("Error: no data loader - " + data_name)
             exit(0)
 
-
+    print(epoch > cfg.prepare_epochs, cfg.eval_alive, cfg.eval)
 
     dataloader = dataset.test_data_loader
 
@@ -72,7 +74,9 @@ def test(model, model_fn, data_name, epoch):
         matches = {}
         for i, batch in enumerate(dataloader):
             N = batch['feats'].shape[0]
-            test_scene_name = dataset.file_names[cfg.split][int(batch['id'][0])].split('/')[-1].strip('.pickle')
+            # test_scene_name = dataset.file_names[cfg.split][int(batch['id'][0])].split('/')[-1].strip('.pickle')  # strip works char by char 
+            test_scene_name = dataset.file_names[cfg.split][int(batch['id'][0])].split('/')[-1][:-7]
+            
             start1 = time.time()
             preds = model_fn(batch, model, epoch)
             end1 = time.time() - start1
@@ -172,37 +176,40 @@ def test(model, model_fn, data_name, epoch):
 
             ##### save files
             start3 = time.time()
+            print(result_dir, cfg.save_semantic)
             if cfg.save_semantic:
                 os.makedirs(os.path.join(result_dir, 'semantic'), exist_ok=True)
                 semantic_np = semantic_pred.cpu().numpy()
                 np.save(os.path.join(result_dir, 'semantic', test_scene_name + '.npy'), semantic_np)
 
-            if cfg.save_pt_offsets:
-                os.makedirs(os.path.join(result_dir, 'coords_offsets'), exist_ok=True)
-                pt_offsets_np = pt_offsets.cpu().numpy()
-                coords_np = batch['locs_float'].numpy()
-                coords_offsets = np.concatenate((coords_np, pt_offsets_np), 1)   # (N, 6)
-                np.save(os.path.join(result_dir, 'coords_offsets', test_scene_name + '.npy'), coords_offsets)
+            # if cfg.save_pt_offsets:
+            #     os.makedirs(os.path.join(result_dir, 'coords_offsets'), exist_ok=True)
+            #     pt_offsets_np = pt_offsets.cpu().numpy()
+            #     coords_np = batch['locs_float'].numpy()
+            #     coords_offsets = np.concatenate((coords_np, pt_offsets_np), 1)   # (N, 6)
+            #     np.save(os.path.join(result_dir, 'coords_offsets', test_scene_name + '.npy'), coords_offsets)
 
 
-            if(epoch > cfg.prepare_epochs and cfg.save_instance):
-                f = open(os.path.join(result_dir, test_scene_name + '.txt'), 'w')
-                for proposal_id in range(nclusters):
-                    clusters_i = clusters[proposal_id].cpu().numpy()  # (N)
-                    semantic_label = np.argmax(np.bincount(semantic_pred[np.where(clusters_i == 1)[0]].cpu()))
-                    score = cluster_scores[proposal_id]
-                    f.write('predicted_masks/{}_{:03d}.txt {} {:.4f}'.format(test_scene_name, proposal_id, semantic_label_idx[semantic_label], score))
-                    if proposal_id < nclusters - 1:
-                        f.write('\n')
-                    np.savetxt(os.path.join(result_dir, 'predicted_masks', test_scene_name + '_%03d.txt' % (proposal_id)), clusters_i, fmt='%d')
-                f.close()
+            # if(epoch > cfg.prepare_epochs and cfg.save_instance):
+            #     f = open(os.path.join(result_dir, test_scene_name + '.txt'), 'w')
+            #     for proposal_id in range(nclusters):
+            #         clusters_i = clusters[proposal_id].cpu().numpy()  # (N)
+            #         semantic_label = np.argmax(np.bincount(semantic_pred[np.where(clusters_i == 1)[0]].cpu()))
+            #         score = cluster_scores[proposal_id]
+            #         f.write('predicted_masks/{}_{:03d}.txt {} {:.4f}'.format(test_scene_name, proposal_id, semantic_label_idx[semantic_label], score))
+            #         if proposal_id < nclusters - 1:
+            #             f.write('\n')
+            #         np.savetxt(os.path.join(result_dir, 'predicted_masks', test_scene_name + '_%03d.txt' % (proposal_id)), clusters_i, fmt='%d')
+            #     f.close()
             end3 = time.time() - start3
             end = time.time() - start
             start = time.time()
-
+            ipdb.set_trace()
             ##### print
-            logger.info("instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(batch['id'][0] + 1, len(dataset.file_names[cfg.split]), N, nclusters, end, end1, end3))
-
+            # logger.info("instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(batch['id'][0] + 1, len(dataset.file_names[cfg.split]), N, nclusters, end, end1, end3))
+            logger.info("instance iter: {}/{} point_num: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(batch['id'][0] + 1, len(dataset.file_names[cfg.split]), N, end, end1, end3))
+            # if batch['id'][0] > 5:
+            #     break
         ##### evaluation
         if cfg.eval:
             ap_scores = eval.evaluate_matches(matches)
@@ -267,4 +274,5 @@ if __name__ == '__main__':
     utils.checkpoint_restore(model, cfg.exp_path, cfg.config.split('/')[-1][:-5], use_cuda, cfg.test_epoch, dist=False, f=cfg.pretrain)      # resume from the latest epoch, or specify the epoch to restore
 
     ##### evaluate
-    test(model, model_fn, data_name, cfg.test_epoch)
+    test(model, model_fn, data_name, 100000000)
+    # test(model, model_fn, data_name, cfg.test_epoch)

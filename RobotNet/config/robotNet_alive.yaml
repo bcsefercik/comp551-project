@@ -3,7 +3,7 @@ GENERAL:
   manual_seed: 123
   model_dir: model/pointgroup/pointgroup.py
   dataset_dir: data/alivev1_inst.py
-  exp_path: 'exp/alivev1/pointgroup/pointgroup_alive/regression/trial_raw_8'
+  exp_path: 'exp/alivev1/pointgroup/pointgroup_alive/regression/trial_new_1'
 
 DATA:
   data_root: dataset
@@ -32,7 +32,7 @@ STRUCTURE:
   max_point_lim: 512
 
 TRAIN:
-  epochs: 60
+  epochs: 960
   train_workers: 16 # data loader workers
   optim: Adam # Adam or SGD
   lr: 0.001
@@ -62,7 +62,7 @@ GROUP:
   cluster_shift_meanActive: 300
   cluster_npoint_thre: 50
 
-  prepare_epochs: 30 #prepare_epochs: 128
+  prepare_epochs: 640 #prepare_epochs: 128
 
 TEST:
   split: test

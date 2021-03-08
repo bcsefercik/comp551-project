@@ -25,7 +25,7 @@ COLOR40 = np.array(
 SEMANTIC_IDXS = np.array([0, 1])
 SEMANTIC_NAMES = np.array(['background', 'arm'])
 CLASS_COLOR = {
-    'background': [143, 223, 142],
+    'background': [0, 0, 0],
     'arm': [189, 189, 57]
 }
 SEMANTIC_IDX2NAME = {0: 'background', 1: 'arm'}
@@ -65,7 +65,7 @@ def get_coords_color(opt):
     with open(input_file, 'rb') as f:
         x = pickle.load(f)
         if opt.dataset == 'test':
-            xyz, rgb,_,__ = x
+            xyz, rgb, label, _, _ = x
         else:
             xyz, rgb, label, inst_label = x
     

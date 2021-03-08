@@ -125,6 +125,7 @@ def test(model, model_fn, data_name, epoch):
 
             ##### save files
             start3 = time.time()
+            print(result_dir, cfg.save_semantic)
             if cfg.save_semantic:
                 os.makedirs(os.path.join(result_dir, 'semantic'), exist_ok=True)
                 semantic_np = semantic_pred.cpu().numpy()
