@@ -138,31 +138,6 @@ class RobotNet(nn.Module):
         self.pretrain_module = cfg.pretrain_module
         self.fix_module      = cfg.fix_module
 
-        norm_fn              = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
-
-        if block_residual:
-            block = ResidualBlock
-        else:
-            block = VGGBlock
-
-        if cfg.use_coords:
-            input_c += 3
-
-        #### backbone
-        self.input_conv = spconv.SparseSequential(
-            spconv.SubMConv3d(input_c, m, kernel_size=3, padding=1, bias=False, indice_key='subm1')
-        )
-
-        self.unet = UBlock([m, 2*m, 3*m, 4*m, 5*m, 6*m, 7*m], norm_fn, block_reps, block, indice_key_id=1)
-
-        self.output_layer = spconv.SparseSequential(
-            norm_fn(m),
-            nn.ReLU()
-        )
-
-        # semantic segmentation
-        self.linear = nn.Linear(m, classes)  # bias(default): True
-
         self.regression = nn.Sequential(
             nn.Linear(self.max_point_lim*3, self.fc1_hidden),
             nn.ReLU(),
@@ -174,41 +149,9 @@ class RobotNet(nn.Module):
             # nn.Linear(self.fc1_hidden, self.regres_dim),
         )
 
-        """
-        Onur:Removing unnecssary parts
-        #### offset
-        self.offset = nn.Sequential(
-            nn.Linear(m, m, bias=True),
-            norm_fn(m),
-            nn.ReLU()
-        )
-
-        self.offset_linear = nn.Linear(m, 3, bias=True)
-
-        #### score branch
-        self.score_unet = UBlock([m, 2*m], norm_fn, 2, block, indice_key_id=1)
-        self.score_outputlayer = spconv.SparseSequential(
-            norm_fn(m),
-            nn.ReLU()
-        )
-        self.score_linear = nn.Linear(m, 1)
-        """
-
         self.apply(self.set_bn_init)
 
-        #### fix parameter
-
-        #Our new model
-        module_map = {'input_conv': self.input_conv, 'unet': self.unet, 'output_layer': self.output_layer,
-                      'linear': self.linear, 'regression': self.regression}
-
-
-        """
-        #Onur: Removing unnessary parts
-        module_map = {'input_conv': self.input_conv, 'unet': self.unet, 'output_layer': self.output_layer,
-                      'linear': self.linear, 'offset': self.offset, 'offset_linear': self.offset_linear,
-                      'score_unet': self.score_unet, 'score_outputlayer': self.score_outputlayer, 'score_linear': self.score_linear}
-        """
+        module_map = {'regression': self.regression}
 
         for m in self.fix_module:
             mod = module_map[m]
@@ -238,59 +181,8 @@ class RobotNet(nn.Module):
             m.weight.data.fill_(1.0)
             m.bias.data.fill_(0.0)
 
-
-    def clusters_voxelization(self, clusters_idx, clusters_offset, feats, coords, fullscale, scale, mode):
-        '''
-        :param clusters_idx: (SumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N, cpu
-        :param clusters_offset: (nCluster + 1), int, cpu
-        :param feats: (N, C), float, cuda
-        :param coords: (N, 3), float, cuda
-        :return:
-        '''
-        c_idxs          = clusters_idx[:, 1].cuda()
-        clusters_feats = feats[c_idxs.long()]
-        clusters_coords = coords[c_idxs.long()]
-
-        clusters_coords_mean = pointgroup_ops.sec_mean(clusters_coords, clusters_offset.cuda())  # (nCluster, 3), float
-        clusters_coords_mean = torch.index_select(clusters_coords_mean, 0, clusters_idx[:, 0].cuda().long())  # (sumNPoint, 3), float
-        clusters_coords -= clusters_coords_mean
-
-        clusters_coords_min = pointgroup_ops.sec_min(clusters_coords, clusters_offset.cuda())  # (nCluster, 3), float
-        clusters_coords_max = pointgroup_ops.sec_max(clusters_coords, clusters_offset.cuda())  # (nCluster, 3), float
-
-        clusters_scale = 1 / ((clusters_coords_max - clusters_coords_min) / fullscale).max(1)[0] - 0.01  # (nCluster), float
-        clusters_scale = torch.clamp(clusters_scale, min=None, max=scale)
-
-        min_xyz = clusters_coords_min * clusters_scale.unsqueeze(-1)  # (nCluster, 3), float
-        max_xyz = clusters_coords_max * clusters_scale.unsqueeze(-1)
-
-        clusters_scale = torch.index_select(clusters_scale, 0, clusters_idx[:, 0].cuda().long())
-
-        clusters_coords = clusters_coords * clusters_scale.unsqueeze(-1)
-
-        range = max_xyz - min_xyz
-        offset = - min_xyz + torch.clamp(fullscale - range - 0.001, min=0) * torch.rand(3).cuda() + torch.clamp(fullscale - range + 0.001, max=0) * torch.rand(3).cuda()
-        offset = torch.index_select(offset, 0, clusters_idx[:, 0].cuda().long())
-        clusters_coords += offset
-        assert clusters_coords.shape.numel() == ((clusters_coords >= 0) * (clusters_coords < fullscale)).sum()
-
-        clusters_coords = clusters_coords.long()
-        clusters_coords = torch.cat([clusters_idx[:, 0].view(-1, 1).long(), clusters_coords.cpu()], 1)  # (sumNPoint, 1 + 3)
-
-        out_coords, inp_map, out_map = pointgroup_ops.voxelization_idx(clusters_coords, int(clusters_idx[-1, 0]) + 1, mode)
-        # output_coords: M * (1 + 3) long
-        # input_map: sumNPoint int
-        # output_map: M * (maxActive + 1) int
-
-        out_feats = pointgroup_ops.voxelization(clusters_feats, out_map.cuda(), mode)  # (M, C), float, cuda
-
-        spatial_shape = [fullscale] * 3
-        voxelization_feats = spconv.SparseConvTensor(out_feats, out_coords.int().cuda(), spatial_shape, int(clusters_idx[-1, 0]) + 1)
-
-        return voxelization_feats, inp_map
-
-
     def forward(self, input, input_map, coords, batch_idxs, batch_offsets,file_names,epoch):
+        ipdb.set_trace()
 
         #Params: input_, p2v_map,  coords_float, coords[:, 0].int(), batch_offsets, epoch
 
@@ -303,25 +195,6 @@ class RobotNet(nn.Module):
         '''
         ret = {}
         output = self.input_conv(input)
-        output = self.unet(output)
-        output = self.output_layer(output)
-        output_feats = output.features[input_map.long()]
-
-        #### semantic segmentation
-        semantic_scores = self.linear(output_feats)# (N, nClass), float
-
-        semantic_preds = semantic_scores.max(1)[1]# (N), long
-        
-        #print('Semantic Prediction shape is: ', semantic_preds.shape)
-        ret['semantic_scores'] = semantic_scores
-        #for ii in range(len(batch_offsets)-1):
-            #print('Passing the file: ', file_names[ii],' ' ,
-            #sum(semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1))
-
-        #ret['unet_time'] = time.time()
-
-        if epoch == self.prepare_epochs:
-            self.freeze_unet()
 
         ##### Extracting Arm 
         if epoch > self.prepare_epochs:

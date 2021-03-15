@@ -16,6 +16,7 @@ from util.config import cfg
 from util.log import logger
 from lib.pointgroup_ops.functions import pointgroup_ops
 
+import ipdb
 
 import math
 
@@ -42,10 +43,13 @@ class Dataset:
             self.test_split = cfg.split  # val or test
             self.test_workers = cfg.test_workers
             cfg.batch_size = 1
+            self.batch_size = 1
 
 
     def trainLoader(self):
-        self.file_names['train'] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
+        self.file_names['train'] = glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix))
+        self.file_names['train'] = [fn for fn in self.file_names['train'] if fn[-16::] != '_semantic.pickle' and 'dark' not in fn]
+        self.file_names['train'].sort()
         self.file_cnt   =  len(self.file_names['train'])
         self.batch_cnt  = math.ceil(self.file_cnt / self.batch_size)
         train_set = list(range(len(self.file_names['train'])))
@@ -56,7 +60,9 @@ class Dataset:
 
 
     def valLoader(self):
-        self.file_names['val'] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix)))
+        self.file_names['val'] = glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix))
+        self.file_names['val'] = [fn for fn in self.file_names['val'] if fn[-16::] != '_semantic.pickle' and 'dark' not in fn]
+        self.file_names['val'].sort()
         self.file_cnt   =  len(self.file_names['val'])
         self.batch_cnt  = math.ceil(self.file_cnt / self.batch_size)
         val_set = list(range(len(self.file_names['val'])))
@@ -66,7 +72,9 @@ class Dataset:
 
 
     def testLoader(self):
-        self.file_names[self.test_split] = sorted(glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix)))
+        self.file_names[self.test_split] = glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix))
+        self.file_names[self.test_split] = [fn for fn in self.file_names[self.test_split] if fn[-16::] != '_semantic.pickle' and 'dark' not in fn]
+        self.file_names[self.test_split].sort()
         self.file_cnt  =  len(self.file_names[self.test_split])
         self.batch_cnt = math.ceil(self.file_cnt / self.batch_size)
         test_set = list(np.arange(len(self.file_names[self.test_split])))
