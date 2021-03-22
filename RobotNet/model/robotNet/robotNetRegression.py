@@ -109,7 +109,7 @@ class UBlock(nn.Module):
         return output
 
 
-class RobotNet(nn.Module):
+class RobotNetRegression(nn.Module):
     def __init__(self, cfg):
         super().__init__()
 
@@ -188,7 +188,7 @@ class RobotNet(nn.Module):
 
         '''
         :param input_map: (N), int, cuda
-        :param coords: (N, 3), float, cuda 
+        :param coords: (N, 3), float, cuda
             this is locs_float
         :param batch_idxs: (N), int, cuda
         :param batch_offsets: (B + 1), int, cuda
@@ -196,7 +196,7 @@ class RobotNet(nn.Module):
         ret = {}
         output = self.input_conv(input)
 
-        ##### Extracting Arm 
+        ##### Extracting Arm
         if epoch > self.prepare_epochs:
             pcd = o3d.geometry.PointCloud()
             arm_regress_list = list()
@@ -216,7 +216,7 @@ class RobotNet(nn.Module):
                 if length > self.max_point_lim:
                     ind      = np.random.choice(length, self.max_point_lim, replace=False)
                     down_pcd = vox_pcd.select_by_index(ind)
-                    
+
                     #o3d.io.write_point_cloud("./down_pcd.pcd", down_pcd , write_ascii=False, compressed=False, print_progress=True)
 
                 #we should update
@@ -351,7 +351,7 @@ def model_fn_decorator(test=False):
             """
             Onur: removing unncessary parts
             if (epoch > cfg.prepare_epochs):
-                
+
                 preds['score'] = scores
                 preds['proposals'] = (proposals_idx, proposals_offset)
             """
@@ -362,58 +362,12 @@ def model_fn_decorator(test=False):
 
 
     def model_fn(batch, model, epoch):
-        ##### prepare input and forward
-        # batch {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
-        # 'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
-        # 'instance_info': instance_infos, 'instance_pointnum': instance_pointnum,
-        # 'id': tbl, 'offsets': batch_offsets, 'spatial_shape': spatial_shape}
-        coords       = batch['locs'].cuda()        # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-        voxel_coords = batch['voxel_locs'].cuda()  # (M, 1 + 3), long, cuda
-        p2v_map      = batch['p2v_map'].cuda()     # (N), int, cuda
-        v2p_map      = batch['v2p_map'].cuda()     # (M, 1 + maxActive), int, cuda
-        #p2v_map: N points -> M voxels (Use it with p2v_map.cpu().numpy(), its the combination of #batch_size scenes)
-        #v2p_map: M_voxels -> N points (Use it with v2p_map.cpu().numpy(), its the combination of #batch_size scenes)
-
-        file_names      = batch['file_names']
-        coords_float    = batch['locs_float'].cuda()      # (N, 3), float32, cuda
-        feats           = batch['feats'].cuda().float()   # (N, C), float32, cuda
-        poses           = batch['poses'].cuda().float()   # (B,7), float32, cuda
-        labels          = batch['labels'].cuda()          # (N), long, cuda
-        instance_labels = batch['instance_labels'].cuda() # (N), long, cuda, 0~total_nInst, -100
-
-        instance_info     = batch['instance_info'].cuda()          # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
-        instance_pointnum = batch['instance_pointnum'].cuda()  # (total_nInst), int, cuda
-
-        batch_offsets = batch['offsets'].cuda()                # (B + 1), int, cuda
-
-        spatial_shape = batch['spatial_shape']
-
-        if cfg.use_coords:
-            feats = torch.cat((feats, coords_float), 1) #Onur: Feats are just RGB
-        #We already get the indices of voxels, now we are doing the real voxelization
-        voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.mode)  # (M, C), float, cuda
-        #This just generates the sparse convolution object. The object can be used with sparse convolutions.
-        input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
-        start1 = time.time()
-        ret    = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets,file_names, epoch)
-        end1   = time.time() - start1
+        print()
+        semantic_scores = batch['semantics'].cuda()        # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
+        file_names = batch['file_names']
 
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
 
-        """
-        #Onur: Removing unnessary parts
-        pt_offsets = ret['pt_offsets']           # (N, 3), float32, cuda
-        """
-
-
-        """
-        Onur: Removing unnessary parts from the model
-        if(epoch > cfg.prepare_epochs):
-            scores, proposals_idx, proposals_offset = ret['proposal_scores']
-            # scores: (nProposal, 1) float, cuda
-            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            # proposals_offset: (nProposal + 1), int, cpu
-        """
 
         loss_inp = {}
         loss_inp['semantic_scores'] = (semantic_scores, labels)
@@ -422,16 +376,6 @@ def model_fn_decorator(test=False):
             arm_regress = ret['arm_regress']
             loss_inp['arm_regress']     = (arm_regress, poses)
 
-        """
-        #Onur: Removing unnessary parts
-        loss_inp['pt_offsets']      = (pt_offsets, coords_float, instance_info, instance_labels)
-        """
-
-        """
-        Onur: Removing unnessary parts from the model
-        if(epoch > cfg.prepare_epochs):
-            loss_inp['proposal_scores'] = (scores, proposals_idx, proposals_offset, instance_pointnum)
-        """
 
         loss, loss_out, infos = loss_fn(loss_inp, epoch)
 
@@ -443,7 +387,7 @@ def model_fn_decorator(test=False):
             """
             Onur: Removing unnessary parts
             preds['pt_offsets'] = pt_offsets
-            
+
             if(epoch > cfg.prepare_epochs):
                 preds['score'] = scores
                 preds['proposals'] = (proposals_idx, proposals_offset)

@@ -2,6 +2,7 @@ import time
 import torch
 import torch.nn as nn
 import spconv
+import sys
 from spconv.modules import SparseModule
 import functools
 from collections import OrderedDict
@@ -296,7 +297,7 @@ class RobotNet(nn.Module):
 
         '''
         :param input_map: (N), int, cuda
-        :param coords: (N, 3), float, cuda 
+        :param coords: (N, 3), float, cuda
             this is locs_float
         :param batch_idxs: (N), int, cuda
         :param batch_offsets: (B + 1), int, cuda
@@ -311,7 +312,7 @@ class RobotNet(nn.Module):
         semantic_scores = self.linear(output_feats)# (N, nClass), float
 
         semantic_preds = semantic_scores.max(1)[1]# (N), long
-        
+
         #print('Semantic Prediction shape is: ', semantic_preds.shape)
         ret['semantic_scores'] = semantic_scores
         #for ii in range(len(batch_offsets)-1):
@@ -323,7 +324,7 @@ class RobotNet(nn.Module):
         if epoch == self.prepare_epochs:
             self.freeze_unet()
 
-        ##### Extracting Arm 
+        ##### Extracting Arm
         if epoch > self.prepare_epochs:
             pcd = o3d.geometry.PointCloud()
             arm_regress_list = list()
@@ -343,7 +344,7 @@ class RobotNet(nn.Module):
                 if length > self.max_point_lim:
                     ind      = np.random.choice(length, self.max_point_lim, replace=False)
                     down_pcd = vox_pcd.select_by_index(ind)
-                    
+
                     #o3d.io.write_point_cloud("./down_pcd.pcd", down_pcd , write_ascii=False, compressed=False, print_progress=True)
 
                 #we should update
@@ -478,7 +479,7 @@ def model_fn_decorator(test=False):
             """
             Onur: removing unncessary parts
             if (epoch > cfg.prepare_epochs):
-                
+
                 preds['score'] = scores
                 preds['proposals'] = (proposals_idx, proposals_offset)
             """
@@ -549,6 +550,9 @@ def model_fn_decorator(test=False):
             arm_regress = ret['arm_regress']
             loss_inp['arm_regress']     = (arm_regress, poses)
 
+            # print((arm_regress.shape, poses.shape))
+            # ipdb.set_trace()
+            # print((arm_regress, poses))
         """
         #Onur: Removing unnessary parts
         loss_inp['pt_offsets']      = (pt_offsets, coords_float, instance_info, instance_labels)
@@ -570,7 +574,7 @@ def model_fn_decorator(test=False):
             """
             Onur: Removing unnessary parts
             preds['pt_offsets'] = pt_offsets
-            
+
             if(epoch > cfg.prepare_epochs):
                 preds['score'] = scores
                 preds['proposals'] = (proposals_idx, proposals_offset)

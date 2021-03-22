@@ -62,7 +62,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
             am_dict[k].update(v[0], v[1])
 
         ##### backward
-        optimizer.zero_grad() 
+        optimizer.zero_grad()
 
         if loss.grad_fn != None:
 
@@ -141,15 +141,8 @@ if __name__ == '__main__':
     ##### model
     logger.info('=> creating model ...')
 
-    if model_name == 'pointgroup':
-        from model.pointgroup.pointgroup import PointGroup as Network
-        from model.pointgroup.pointgroup import model_fn_decorator
-    elif model_name == 'robotNet':
-        from model.robotNet.robotNet import RobotNet as Network
-        from model.robotNet.robotNet import model_fn_decorator
-    else:
-        print("Error: no model - " + model_name)
-        exit(0)
+    from model.robotNet.robotNetRegression import RobotNetRegression as Network
+    from model.robotNet.robotNetRegression import model_fn_decorator
 
     model = Network(cfg)
 
@@ -171,26 +164,11 @@ if __name__ == '__main__':
     model_fn = model_fn_decorator()
 
     ##### dataset
-    if cfg.dataset == 'scannetv2':
-        if data_name == 'scannet':
-            import data.scannetv2_inst
-            dataset = data.scannetv2_inst.Dataset()
-            dataset.trainLoader()
-            dataset.valLoader()
-        else:
-            print("Error: no data loader - " + data_name)
-            exit(0)
 
-
-    elif cfg.dataset == 'alivev1':
-        if data_name == 'alive':
-            import data.alivev1_inst
-            dataset = data.alivev1_inst.Dataset()
-            dataset.trainLoader()
-            dataset.valLoader()
-        else:
-            print("Error: no data loader - " + data_name)
-            exit(0)
+    import data.alivev1_regression_inst
+    dataset = data.alivev1_regression_inst.Dataset()
+    dataset.trainLoader()
+    # dataset.valLoader()
 
 
 
@@ -201,5 +179,5 @@ if __name__ == '__main__':
     for epoch in range(start_epoch, cfg.epochs + 1):
         train_epoch(dataset.train_data_loader, model, model_fn, optimizer, epoch)
 
-        if utils.is_multiple(epoch, cfg.save_freq) or utils.is_power2(epoch):
-            eval_epoch(dataset.val_data_loader, model, model_fn, epoch)
+        # if utils.is_multiple(epoch, cfg.save_freq) or utils.is_power2(epoch):
+        #     eval_epoch(dataset.val_data_loader, model, model_fn, epoch)
