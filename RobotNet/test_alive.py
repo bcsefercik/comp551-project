@@ -8,6 +8,9 @@ import time
 import numpy as np
 import random
 import os
+import pickle
+
+import ipdb
 
 from util.config import cfg
 cfg.task = 'test'
@@ -55,24 +58,41 @@ def test(model, model_fn, data_name, epoch):
         if data_name == 'alive':
             from data.alivev1_inst import Dataset
             dataset = Dataset(test=True)
+            dataset.trainLoader()
             dataset.testLoader()
             dataset.valLoader()
         else:
             print("Error: no data loader - " + data_name)
             exit(0)
 
-
+    print(epoch > cfg.prepare_epochs, cfg.eval_alive, cfg.eval)
 
     dataloader = dataset.test_data_loader
+    # dataloader = dataset.train_data_loader
+    # dataloader = dataset.val_data_loader
 
     with torch.no_grad():
         model = model.eval()
         start = time.time()
 
         matches = {}
+
+        # black_list = [2879]  # train
+        black_list = []  # test
+        # black_list = []  # val
+
         for i, batch in enumerate(dataloader):
+            if i in black_list:
+                continue
+            # ipdb.set_trace()
             N = batch['feats'].shape[0]
-            test_scene_name = dataset.file_names[cfg.split][int(batch['id'][0])].split('/')[-1].strip('.pickle')
+            test_scene_name = batch['file_names'][0].split('/')[-1][:-7]
+            logger.info("{} - instance iter: {}/{} point_num: {}".format(test_scene_name, i + 1, len(dataloader), N))
+
+            # test_scene_name = dataset.file_names[cfg.split][int(batch['id'][0])].split('/')[-1][:-7]
+            if os.path.exists(batch['file_names'][0].replace(".pickle", "_semantic.pickle")):
+                continue
+            
             start1 = time.time()
             preds = model_fn(batch, model, epoch)
             end1 = time.time() - start1
@@ -81,7 +101,11 @@ def test(model, model_fn, data_name, epoch):
             ##### get predictions (#1 semantic_pred, pt_offsets; #2 scores, proposals_pred)
             semantic_scores = preds['semantic']  # (N, nClass=20) float32, cuda
             semantic_pred = semantic_scores.max(1)[1]  # (N) long, cuda
+            # if not os.path.exists(batch['file_names'][0].replace(".pickle", "_semantic.pickle")):
+            with open(batch['file_names'][0].replace(".pickle", "_semantic.pickle"), "wb") as fp:
+                pickle.dump(semantic_scores.cpu().numpy(), fp)
 
+            continue
             """
             Onur: removing unncessary parts
             pt_offsets = preds['pt_offsets']    # (N, 3), float32, cuda
@@ -172,37 +196,39 @@ def test(model, model_fn, data_name, epoch):
 
             ##### save files
             start3 = time.time()
+            print(result_dir, cfg.save_semantic)
             if cfg.save_semantic:
                 os.makedirs(os.path.join(result_dir, 'semantic'), exist_ok=True)
                 semantic_np = semantic_pred.cpu().numpy()
                 np.save(os.path.join(result_dir, 'semantic', test_scene_name + '.npy'), semantic_np)
 
-            if cfg.save_pt_offsets:
-                os.makedirs(os.path.join(result_dir, 'coords_offsets'), exist_ok=True)
-                pt_offsets_np = pt_offsets.cpu().numpy()
-                coords_np = batch['locs_float'].numpy()
-                coords_offsets = np.concatenate((coords_np, pt_offsets_np), 1)   # (N, 6)
-                np.save(os.path.join(result_dir, 'coords_offsets', test_scene_name + '.npy'), coords_offsets)
+            # if cfg.save_pt_offsets:
+            #     os.makedirs(os.path.join(result_dir, 'coords_offsets'), exist_ok=True)
+            #     pt_offsets_np = pt_offsets.cpu().numpy()
+            #     coords_np = batch['locs_float'].numpy()
+            #     coords_offsets = np.concatenate((coords_np, pt_offsets_np), 1)   # (N, 6)
+            #     np.save(os.path.join(result_dir, 'coords_offsets', test_scene_name + '.npy'), coords_offsets)
 
 
-            if(epoch > cfg.prepare_epochs and cfg.save_instance):
-                f = open(os.path.join(result_dir, test_scene_name + '.txt'), 'w')
-                for proposal_id in range(nclusters):
-                    clusters_i = clusters[proposal_id].cpu().numpy()  # (N)
-                    semantic_label = np.argmax(np.bincount(semantic_pred[np.where(clusters_i == 1)[0]].cpu()))
-                    score = cluster_scores[proposal_id]
-                    f.write('predicted_masks/{}_{:03d}.txt {} {:.4f}'.format(test_scene_name, proposal_id, semantic_label_idx[semantic_label], score))
-                    if proposal_id < nclusters - 1:
-                        f.write('\n')
-                    np.savetxt(os.path.join(result_dir, 'predicted_masks', test_scene_name + '_%03d.txt' % (proposal_id)), clusters_i, fmt='%d')
-                f.close()
+            # if(epoch > cfg.prepare_epochs and cfg.save_instance):
+            #     f = open(os.path.join(result_dir, test_scene_name + '.txt'), 'w')
+            #     for proposal_id in range(nclusters):
+            #         clusters_i = clusters[proposal_id].cpu().numpy()  # (N)
+            #         semantic_label = np.argmax(np.bincount(semantic_pred[np.where(clusters_i == 1)[0]].cpu()))
+            #         score = cluster_scores[proposal_id]
+            #         f.write('predicted_masks/{}_{:03d}.txt {} {:.4f}'.format(test_scene_name, proposal_id, semantic_label_idx[semantic_label], score))
+            #         if proposal_id < nclusters - 1:
+            #             f.write('\n')
+            #         np.savetxt(os.path.join(result_dir, 'predicted_masks', test_scene_name + '_%03d.txt' % (proposal_id)), clusters_i, fmt='%d')
+            #     f.close()
             end3 = time.time() - start3
             end = time.time() - start
             start = time.time()
-
             ##### print
-            logger.info("instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(batch['id'][0] + 1, len(dataset.file_names[cfg.split]), N, nclusters, end, end1, end3))
-
+            # logger.info("instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(batch['id'][0] + 1, len(dataset.file_names[cfg.split]), N, nclusters, end, end1, end3))
+            logger.info("instance iter: {}/{} point_num: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(batch['id'][0] + 1, len(dataset.file_names[cfg.split]), N, end, end1, end3))
+            # if batch['id'][0] > 5:
+            #     break
         ##### evaluation
         if cfg.eval:
             ap_scores = eval.evaluate_matches(matches)
@@ -267,4 +293,5 @@ if __name__ == '__main__':
     utils.checkpoint_restore(model, cfg.exp_path, cfg.config.split('/')[-1][:-5], use_cuda, cfg.test_epoch, dist=False, f=cfg.pretrain)      # resume from the latest epoch, or specify the epoch to restore
 
     ##### evaluate
-    test(model, model_fn, data_name, cfg.test_epoch)
+    test(model, model_fn, data_name, 100000000)
+    # test(model, model_fn, data_name, cfg.test_epoch)

@@ -14,26 +14,24 @@ from lib.pointgroup_ops.functions import pointgroup_ops
 
 import ipdb
 
-import math
 
 class Dataset:
     def __init__(self, test=False):
-        self.data_root       = cfg.data_root
-        self.dataset         = cfg.dataset
+        self.data_root = cfg.data_root
+        self.dataset = cfg.dataset
         self.filename_suffix = cfg.filename_suffix
-        self.batch_size      = cfg.batch_size
-        self.train_workers   = cfg.train_workers
-        self.val_workers     = cfg.train_workers
-        self.full_scale      = cfg.full_scale
-        self.scale           = cfg.scale
-        self.max_npoint      = cfg.max_npoint
-        self.mode            = cfg.mode
-        self.epoch           = 0
-        self.prepare_epochs  = cfg.prepare_epochs
-        self.iteration_cnt   = 0
-        self.file_cnt        = 0
-        self.file_names      = {}
-        #print(cfg)
+        self.batch_size = cfg.batch_size
+        self.train_workers = cfg.train_workers
+        self.val_workers = cfg.train_workers
+        self.full_scale = cfg.full_scale
+        self.scale = cfg.scale
+        self.max_npoint = cfg.max_npoint
+        self.mode = cfg.mode
+        self.epoch = 0
+        self.prepare_epochs = cfg.prepare_epochs
+        self.iteration_cnt = 0
+        self.file_cnt = 0
+        self.file_names = dict()
 
         if test:
             self.test_split = cfg.split  # val or test
@@ -41,23 +39,19 @@ class Dataset:
             cfg.batch_size = 1
             self.batch_size = 1
 
-
     def trainLoader(self):
         self.file_names['train'] = glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix))
-        self.file_names['train'] = [fn for fn in self.file_names['train'] if fn[-16::] != '_semantic.pickle' and 'dark' not in fn]
+        self.file_names['train'] = [fn for fn in self.file_names['train'] if fn[-16::] == '_semantic.pickle' and 'dark' not in fn]
         self.file_names['train'].sort()
-        self.file_cnt   =  len(self.file_names['train'])
-        self.batch_cnt  = math.ceil(self.file_cnt / self.batch_size)
+        self.file_cnt = len(self.file_names['train'])
+        self.batch_cnt = math.ceil(self.file_cnt / self.batch_size)
         train_set = list(range(len(self.file_names['train'])))
         self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.trainMerge, num_workers=self.train_workers,
                                             shuffle=True, sampler=None, drop_last=True, pin_memory=True)
 
-
-
-
     def valLoader(self):
         self.file_names['val'] = glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix))
-        self.file_names['val'] = [fn for fn in self.file_names['val'] if fn[-16::] != '_semantic.pickle' and 'dark' not in fn]
+        self.file_names['val'] = [fn for fn in self.file_names['val'] if fn[-16::] == '_semantic.pickle' and 'dark' not in fn]
         self.file_names['val'].sort()
         self.file_cnt   =  len(self.file_names['val'])
         self.batch_cnt  = math.ceil(self.file_cnt / self.batch_size)
@@ -65,11 +59,9 @@ class Dataset:
         self.val_data_loader = DataLoader(val_set, batch_size=self.batch_size, collate_fn=self.valMerge, num_workers=self.val_workers,
                                           shuffle=False, drop_last=False, pin_memory=True)
 
-
-
     def testLoader(self):
         self.file_names[self.test_split] = glob.glob(os.path.join(self.data_root, self.dataset, self.test_split, '*' + self.filename_suffix))
-        self.file_names[self.test_split] = [fn for fn in self.file_names[self.test_split] if fn[-16::] != '_semantic.pickle' and 'dark' not in fn]
+        self.file_names[self.test_split] = [fn for fn in self.file_names[self.test_split] if fn[-16::] == '_semantic.pickle' and 'dark' not in fn]
         self.file_names[self.test_split].sort()
         self.file_cnt  =  len(self.file_names[self.test_split])
         self.batch_cnt = math.ceil(self.file_cnt / self.batch_size)
@@ -77,7 +69,7 @@ class Dataset:
         self.test_data_loader = DataLoader(test_set, batch_size=1, collate_fn=self.testMerge, num_workers=self.test_workers,
                                            shuffle=False, drop_last=False, pin_memory=True)
 
-    #Elastic distortion
+    # Elastic distortion
     def elastic(self, x, gran, mag):
         blur0 = np.ones((3, 1, 1)).astype('float32') / 3
         blur1 = np.ones((1, 3, 1)).astype('float32') / 3
@@ -96,7 +88,6 @@ class Dataset:
         def g(x_):
             return np.hstack([i(x_)[:,None] for i in interp])
         return x + g(x) * mag
-
 
     def getInstanceInfo(self, xyz, instance_label):
         '''
@@ -167,21 +158,26 @@ class Dataset:
             j += 1
         return instance_label
 
-    def get_data(self,id,data_type):
+    def get_data(self, id, data_type):
         curr_file_name = self.file_names[data_type][id]
         filehandler = open(curr_file_name, 'rb')
         x = pickle.load(filehandler, encoding='bytes')
         filehandler.close()
-        return x, curr_file_name
+
+        with open(curr_file_name.replace('_semantic', ''), 'rb') as fp:
+            original_data = pickle.load(fp, encoding='bytes')
+
+        return x, original_data, curr_file_name
 
     def trainMerge(self, id):
+        semantics_preds = list()
+        file_names = list()
         locs            = []
         locs_float      = []
         feats           = []
         poses           = []
         labels          = []
         instance_labels = []
-        file_names      = []
         instance_infos    = []  # (N, 9)
         instance_pointnum = []  # (total_nInst), int
         batch_offsets     = [0]
@@ -193,84 +189,20 @@ class Dataset:
         self.scale          = self.scale if augment else 1
 
         for i, idx in enumerate(id):
-            (xyz_origin, rgb, label, instance_label,pose),file_name = self.get_data(idx,'train')
-            pose = np.array(pose)
-            #print('Batch Scene No: ', i, 'Size is: ', xyz_origin.shape)
-
-            ### jitter / flip x / rotation
-            xyz_middle = self.dataAugment(xyz_origin, augment, augment, augment)
-            ### scale
-            xyz        = xyz_middle * self.scale
-
-            #xyz is xyz_midde scaled
-
-
-            ### elastic (No elastic distortion for regression)
-            if augment: 
-                xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
-                xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
-
-            ### offset
-            xyz -= xyz.min(0)
-
-            ### crop
-            xyz, valid_idxs = self.crop(xyz)
-
-            xyz_middle     = xyz_middle[valid_idxs]
-            xyz            = xyz[valid_idxs]
-            rgb            = rgb[valid_idxs]
-            label          = label[valid_idxs]
-            instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
-
-            ### get instance information
-            inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32))
-            inst_info            = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-            inst_pointnum        = inst_infos["instance_pointnum"]   # (nInst), list
-
-            instance_label[np.where(instance_label != -100)] += total_inst_num
-            total_inst_num                                   += inst_num
+            semantics, (xyz_origin, rgb, label, instance_label, pose), file_name = self.get_data(idx, 'train')
+            semantics = torch.from_numpy(semantics)
+            semantics_preds.append(semantics)
+            print(type(semantics_preds[0]), semantics_preds[0].shape)
 
             ### merge the scene to the batch
-            batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
+            batch_offsets.append(batch_offsets[-1] + semantics.shape[0])
 
-            locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1)) #Cok garip birsey
-            locs_float.append(torch.from_numpy(xyz_middle))
-            feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
-            poses.append(torch.from_numpy(np.array(pose, dtype=np.float32)))
-            labels.append(torch.from_numpy(label))
-            file_names.append(file_name)
-            instance_labels.append(torch.from_numpy(instance_label))
-
-            instance_infos.append(torch.from_numpy(inst_info))
-            instance_pointnum.extend(inst_pointnum)
 
         ### merge all the scenes in the batchd
+        semantics_preds = torch.cat(semantics_preds, 0)
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
 
-        locs        = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        #locs_float = torch.cat(locs_float, 0).to(torch.float64) # float (N, 3)
-        locs_float  = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
-
-        feats           = torch.cat(feats, 0)                              # float (N, C)
-        poses           = torch.cat(poses,0)
-        labels          = torch.cat(labels, 0).long()                     # long (N)
-        instance_labels = torch.cat(instance_labels, 0).long()   # long (N)
-
-        instance_infos    = torch.cat(instance_infos, 0).to(torch.float32)       # float (N, 9) (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
-
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None)     # long (3)
-
-        ### voxelize
-        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode) #This is not giving us sequential voxels in point space...
-        #p2v_map: N points -> M voxels (Use it with p2v_map.cpu().numpy(), its the combination of #batch_size scenes)
-        #v2p_map: M_voxels -> N points (Use it with v2p_map.cpu().numpy(), its the combination of #batch_size scenes)
-
-
-        return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
-                'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
-                'instance_info': instance_infos, 'instance_pointnum': instance_pointnum,
-                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape, 'poses': poses,'file_names':file_names}
+        return {'semantics': semantics_preds, 'file_names': file_names}
 
 
     def valMerge(self, id):
@@ -287,7 +219,7 @@ class Dataset:
         instance_pointnum = []  # (total_nInst), int
 
         augment             = self.epoch  < self.prepare_epochs
-        
+
 
         for i, idx in enumerate(id):
             (xyz_origin, rgb, label, instance_label, pose),file_name = self.get_data(idx,'val')
@@ -388,7 +320,7 @@ class Dataset:
 
 
             ### elastic (No elastic distortion for regression)
-            if augment: 
+            if augment:
                 xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
                 xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
 

@@ -20,8 +20,8 @@ class Instance(object):
     def __init__(self, mesh_vert_instances, instance_id):
         if (instance_id == -1):
             return
-        self.instance_id     = int(instance_id)
-        self.label_id    = int(self.get_label_id(instance_id))
+        self.instance_id = int(instance_id)
+        self.label_id = int(self.get_label_id(instance_id))
         self.vert_count = int(self.get_instance_verts(mesh_vert_instances, instance_id))
 
     def get_label_id(self, instance_id):

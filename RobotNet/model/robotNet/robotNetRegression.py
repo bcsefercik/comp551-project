@@ -2,7 +2,6 @@ import time
 import torch
 import torch.nn as nn
 import spconv
-import sys
 from spconv.modules import SparseModule
 import functools
 from collections import OrderedDict
@@ -110,7 +109,7 @@ class UBlock(nn.Module):
         return output
 
 
-class RobotNet(nn.Module):
+class RobotNetRegression(nn.Module):
     def __init__(self, cfg):
         super().__init__()
 
@@ -139,31 +138,6 @@ class RobotNet(nn.Module):
         self.pretrain_module = cfg.pretrain_module
         self.fix_module      = cfg.fix_module
 
-        norm_fn              = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
-
-        if block_residual:
-            block = ResidualBlock
-        else:
-            block = VGGBlock
-
-        if cfg.use_coords:
-            input_c += 3
-
-        #### backbone
-        self.input_conv = spconv.SparseSequential(
-            spconv.SubMConv3d(input_c, m, kernel_size=3, padding=1, bias=False, indice_key='subm1')
-        )
-
-        self.unet = UBlock([m, 2*m, 3*m, 4*m, 5*m, 6*m, 7*m], norm_fn, block_reps, block, indice_key_id=1)
-
-        self.output_layer = spconv.SparseSequential(
-            norm_fn(m),
-            nn.ReLU()
-        )
-
-        # semantic segmentation
-        self.linear = nn.Linear(m, classes)  # bias(default): True
-
         self.regression = nn.Sequential(
             nn.Linear(self.max_point_lim*3, self.fc1_hidden),
             nn.ReLU(),
@@ -175,41 +149,9 @@ class RobotNet(nn.Module):
             # nn.Linear(self.fc1_hidden, self.regres_dim),
         )
 
-        """
-        Onur:Removing unnecssary parts
-        #### offset
-        self.offset = nn.Sequential(
-            nn.Linear(m, m, bias=True),
-            norm_fn(m),
-            nn.ReLU()
-        )
-
-        self.offset_linear = nn.Linear(m, 3, bias=True)
-
-        #### score branch
-        self.score_unet = UBlock([m, 2*m], norm_fn, 2, block, indice_key_id=1)
-        self.score_outputlayer = spconv.SparseSequential(
-            norm_fn(m),
-            nn.ReLU()
-        )
-        self.score_linear = nn.Linear(m, 1)
-        """
-
         self.apply(self.set_bn_init)
 
-        #### fix parameter
-
-        #Our new model
-        module_map = {'input_conv': self.input_conv, 'unet': self.unet, 'output_layer': self.output_layer,
-                      'linear': self.linear, 'regression': self.regression}
-
-
-        """
-        #Onur: Removing unnessary parts
-        module_map = {'input_conv': self.input_conv, 'unet': self.unet, 'output_layer': self.output_layer,
-                      'linear': self.linear, 'offset': self.offset, 'offset_linear': self.offset_linear,
-                      'score_unet': self.score_unet, 'score_outputlayer': self.score_outputlayer, 'score_linear': self.score_linear}
-        """
+        module_map = {'regression': self.regression}
 
         for m in self.fix_module:
             mod = module_map[m]
@@ -239,59 +181,8 @@ class RobotNet(nn.Module):
             m.weight.data.fill_(1.0)
             m.bias.data.fill_(0.0)
 
-
-    def clusters_voxelization(self, clusters_idx, clusters_offset, feats, coords, fullscale, scale, mode):
-        '''
-        :param clusters_idx: (SumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N, cpu
-        :param clusters_offset: (nCluster + 1), int, cpu
-        :param feats: (N, C), float, cuda
-        :param coords: (N, 3), float, cuda
-        :return:
-        '''
-        c_idxs          = clusters_idx[:, 1].cuda()
-        clusters_feats = feats[c_idxs.long()]
-        clusters_coords = coords[c_idxs.long()]
-
-        clusters_coords_mean = pointgroup_ops.sec_mean(clusters_coords, clusters_offset.cuda())  # (nCluster, 3), float
-        clusters_coords_mean = torch.index_select(clusters_coords_mean, 0, clusters_idx[:, 0].cuda().long())  # (sumNPoint, 3), float
-        clusters_coords -= clusters_coords_mean
-
-        clusters_coords_min = pointgroup_ops.sec_min(clusters_coords, clusters_offset.cuda())  # (nCluster, 3), float
-        clusters_coords_max = pointgroup_ops.sec_max(clusters_coords, clusters_offset.cuda())  # (nCluster, 3), float
-
-        clusters_scale = 1 / ((clusters_coords_max - clusters_coords_min) / fullscale).max(1)[0] - 0.01  # (nCluster), float
-        clusters_scale = torch.clamp(clusters_scale, min=None, max=scale)
-
-        min_xyz = clusters_coords_min * clusters_scale.unsqueeze(-1)  # (nCluster, 3), float
-        max_xyz = clusters_coords_max * clusters_scale.unsqueeze(-1)
-
-        clusters_scale = torch.index_select(clusters_scale, 0, clusters_idx[:, 0].cuda().long())
-
-        clusters_coords = clusters_coords * clusters_scale.unsqueeze(-1)
-
-        range = max_xyz - min_xyz
-        offset = - min_xyz + torch.clamp(fullscale - range - 0.001, min=0) * torch.rand(3).cuda() + torch.clamp(fullscale - range + 0.001, max=0) * torch.rand(3).cuda()
-        offset = torch.index_select(offset, 0, clusters_idx[:, 0].cuda().long())
-        clusters_coords += offset
-        assert clusters_coords.shape.numel() == ((clusters_coords >= 0) * (clusters_coords < fullscale)).sum()
-
-        clusters_coords = clusters_coords.long()
-        clusters_coords = torch.cat([clusters_idx[:, 0].view(-1, 1).long(), clusters_coords.cpu()], 1)  # (sumNPoint, 1 + 3)
-
-        out_coords, inp_map, out_map = pointgroup_ops.voxelization_idx(clusters_coords, int(clusters_idx[-1, 0]) + 1, mode)
-        # output_coords: M * (1 + 3) long
-        # input_map: sumNPoint int
-        # output_map: M * (maxActive + 1) int
-
-        out_feats = pointgroup_ops.voxelization(clusters_feats, out_map.cuda(), mode)  # (M, C), float, cuda
-
-        spatial_shape = [fullscale] * 3
-        voxelization_feats = spconv.SparseConvTensor(out_feats, out_coords.int().cuda(), spatial_shape, int(clusters_idx[-1, 0]) + 1)
-
-        return voxelization_feats, inp_map
-
-
     def forward(self, input, input_map, coords, batch_idxs, batch_offsets,file_names,epoch):
+        ipdb.set_trace()
 
         #Params: input_, p2v_map,  coords_float, coords[:, 0].int(), batch_offsets, epoch
 
@@ -304,25 +195,6 @@ class RobotNet(nn.Module):
         '''
         ret = {}
         output = self.input_conv(input)
-        output = self.unet(output)
-        output = self.output_layer(output)
-        output_feats = output.features[input_map.long()]
-
-        #### semantic segmentation
-        semantic_scores = self.linear(output_feats)# (N, nClass), float
-
-        semantic_preds = semantic_scores.max(1)[1]# (N), long
-
-        #print('Semantic Prediction shape is: ', semantic_preds.shape)
-        ret['semantic_scores'] = semantic_scores
-        #for ii in range(len(batch_offsets)-1):
-            #print('Passing the file: ', file_names[ii],' ' ,
-            #sum(semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1))
-
-        #ret['unet_time'] = time.time()
-
-        if epoch == self.prepare_epochs:
-            self.freeze_unet()
 
         ##### Extracting Arm
         if epoch > self.prepare_epochs:
@@ -490,58 +362,12 @@ def model_fn_decorator(test=False):
 
 
     def model_fn(batch, model, epoch):
-        ##### prepare input and forward
-        # batch {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
-        # 'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
-        # 'instance_info': instance_infos, 'instance_pointnum': instance_pointnum,
-        # 'id': tbl, 'offsets': batch_offsets, 'spatial_shape': spatial_shape}
-        coords       = batch['locs'].cuda()        # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-        voxel_coords = batch['voxel_locs'].cuda()  # (M, 1 + 3), long, cuda
-        p2v_map      = batch['p2v_map'].cuda()     # (N), int, cuda
-        v2p_map      = batch['v2p_map'].cuda()     # (M, 1 + maxActive), int, cuda
-        #p2v_map: N points -> M voxels (Use it with p2v_map.cpu().numpy(), its the combination of #batch_size scenes)
-        #v2p_map: M_voxels -> N points (Use it with v2p_map.cpu().numpy(), its the combination of #batch_size scenes)
-
-        file_names      = batch['file_names']
-        coords_float    = batch['locs_float'].cuda()      # (N, 3), float32, cuda
-        feats           = batch['feats'].cuda().float()   # (N, C), float32, cuda
-        poses           = batch['poses'].cuda().float()   # (B,7), float32, cuda
-        labels          = batch['labels'].cuda()          # (N), long, cuda
-        instance_labels = batch['instance_labels'].cuda() # (N), long, cuda, 0~total_nInst, -100
-
-        instance_info     = batch['instance_info'].cuda()          # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
-        instance_pointnum = batch['instance_pointnum'].cuda()  # (total_nInst), int, cuda
-
-        batch_offsets = batch['offsets'].cuda()                # (B + 1), int, cuda
-
-        spatial_shape = batch['spatial_shape']
-
-        if cfg.use_coords:
-            feats = torch.cat((feats, coords_float), 1) #Onur: Feats are just RGB
-        #We already get the indices of voxels, now we are doing the real voxelization
-        voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.mode)  # (M, C), float, cuda
-        #This just generates the sparse convolution object. The object can be used with sparse convolutions.
-        input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
-        start1 = time.time()
-        ret    = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets,file_names, epoch)
-        end1   = time.time() - start1
+        print()
+        semantic_scores = batch['semantics'].cuda()        # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
+        file_names = batch['file_names']
 
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
 
-        """
-        #Onur: Removing unnessary parts
-        pt_offsets = ret['pt_offsets']           # (N, 3), float32, cuda
-        """
-
-
-        """
-        Onur: Removing unnessary parts from the model
-        if(epoch > cfg.prepare_epochs):
-            scores, proposals_idx, proposals_offset = ret['proposal_scores']
-            # scores: (nProposal, 1) float, cuda
-            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            # proposals_offset: (nProposal + 1), int, cpu
-        """
 
         loss_inp = {}
         loss_inp['semantic_scores'] = (semantic_scores, labels)
@@ -550,19 +376,6 @@ def model_fn_decorator(test=False):
             arm_regress = ret['arm_regress']
             loss_inp['arm_regress']     = (arm_regress, poses)
 
-            # print((arm_regress.shape, poses.shape))
-            # ipdb.set_trace()
-            # print((arm_regress, poses))
-        """
-        #Onur: Removing unnessary parts
-        loss_inp['pt_offsets']      = (pt_offsets, coords_float, instance_info, instance_labels)
-        """
-
-        """
-        Onur: Removing unnessary parts from the model
-        if(epoch > cfg.prepare_epochs):
-            loss_inp['proposal_scores'] = (scores, proposals_idx, proposals_offset, instance_pointnum)
-        """
 
         loss, loss_out, infos = loss_fn(loss_inp, epoch)
 
