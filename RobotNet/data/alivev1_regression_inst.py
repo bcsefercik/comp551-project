@@ -170,39 +170,56 @@ class Dataset:
         return x, original_data, curr_file_name
 
     def trainMerge(self, id):
-        semantics_preds = list()
+        semantics_scores = list()
         file_names = list()
-        locs            = []
-        locs_float      = []
-        feats           = []
-        poses           = []
-        labels          = []
-        instance_labels = []
-        instance_infos    = []  # (N, 9)
-        instance_pointnum = []  # (total_nInst), int
-        batch_offsets     = [0]
-        total_inst_num    = 0
+        poses = list()
+        locs = list()
+        locs_float = list()
+        batch_offsets = [0]
 
         self.iteration_cnt += 1
-        self.epoch          = math.ceil(self.iteration_cnt/self.batch_cnt)
-        augment             = self.epoch  < self.prepare_epochs
-        self.scale          = self.scale if augment else 1
+        self.epoch = math.ceil(self.iteration_cnt/self.batch_cnt)
 
         for i, idx in enumerate(id):
             semantics, (xyz_origin, rgb, label, instance_label, pose), file_name = self.get_data(idx, 'train')
+
+            xyz_middle = self.dataAugment(xyz_origin)
+            xyz = xyz_middle
+            xyz -= xyz.min(0)
+            xyz, valid_idxs = self.crop(xyz)
+
+            xyz_middle = xyz_middle[valid_idxs]
+            xyz = xyz[valid_idxs]
+            rgb = rgb[valid_idxs]
+            label = label[valid_idxs]
+            instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
             semantics = torch.from_numpy(semantics)
-            semantics_preds.append(semantics)
-            print(type(semantics_preds[0]), semantics_preds[0].shape)
+            semantics_scores.append(semantics)
+            # print(type(semantics), semantics.shape)
 
-            ### merge the scene to the batch
+            # merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + semantics.shape[0])
+            file_names.append(file_name)
+            poses.append(torch.from_numpy(np.array(pose, dtype=np.float32)))
+            locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1)) #Cok garip birsey
+            locs_float.append(torch.from_numpy(xyz_middle))
 
-
-        ### merge all the scenes in the batchd
-        semantics_preds = torch.cat(semantics_preds, 0)
+        # merge all the scenes in the batchd
+        semantics_scores = torch.cat(semantics_scores, 0)
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
+        locs = torch.cat(locs, 0)  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
+        poses = torch.cat(poses, 0)
 
-        return {'semantics': semantics_preds, 'file_names': file_names}
+        return {
+            'semantics': semantics_scores,
+            'locs': locs,
+            'locs_float': locs_float,
+            'id': id,
+            'offsets': batch_offsets,
+            'poses': poses,
+            'file_names': file_names
+        }
 
 
     def valMerge(self, id):

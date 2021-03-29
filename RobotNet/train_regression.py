@@ -12,6 +12,7 @@ from util.config import cfg
 from util.log import logger
 import util.utils as utils
 
+
 def init():
     # copy important files to backup
     backup_dir = os.path.join(cfg.exp_path, 'backup_files')
@@ -34,6 +35,7 @@ def init():
     torch.manual_seed(cfg.manual_seed)
     torch.cuda.manual_seed_all(cfg.manual_seed)
 
+
 def train_epoch(train_loader, model, model_fn, optimizer, epoch):
     iter_time = utils.AverageMeter()
     data_time = utils.AverageMeter()
@@ -46,22 +48,25 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
         data_time.update(time.time() - end)
         torch.cuda.empty_cache()
 
-        ##### adjust learning rate
-        if epoch > cfg.prepare_epochs:
-            utils.step_learning_rate(optimizer, cfg.regression_lr, epoch - 1 - cfg.prepare_epochs, cfg.step_epoch, cfg.multiplier, clip=1e-8)
-        else:
-            utils.step_learning_rate(optimizer, cfg.lr, epoch - 1, cfg.step_epoch, cfg.multiplier)
+        utils.step_learning_rate(
+            optimizer,
+            cfg.regression_lr,
+            epoch - 1,
+            cfg.step_epoch,
+            cfg.multiplier,
+            clip=1e-8
+        )
 
-        ##### prepare input and forward
+        # prepare input and forward
         loss, _, visual_dict, meter_dict = model_fn(batch, model, epoch)
 
-        ##### meter_dict
+        # meter_dict
         for k, v in meter_dict.items():
             if k not in am_dict.keys():
                 am_dict[k] = utils.AverageMeter()
             am_dict[k].update(v[0], v[1])
 
-        ##### backward
+        # backward
         optimizer.zero_grad()
 
         if loss.grad_fn != None:
@@ -69,7 +74,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
             loss.backward()
             optimizer.step()
 
-        ##### time and print
+        # time and print
         current_iter = (epoch - 1) * len(train_loader) + i + 1
         max_iter = cfg.epochs * len(train_loader)
         remain_iter = max_iter - current_iter
@@ -87,7 +92,6 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
             (epoch, cfg.epochs, i + 1, len(train_loader), am_dict['loss'].val, am_dict['loss'].avg,
              data_time.val, data_time.avg, iter_time.val, iter_time.avg, remain_time=remain_time))
         if (i == len(train_loader) - 1): print()
-
 
     logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(epoch, cfg.epochs, am_dict['loss'].avg, time.time() - start_epoch))
 
