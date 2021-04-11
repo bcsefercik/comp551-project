@@ -32,7 +32,7 @@ STRUCTURE:
   max_point_lim: 512
 
 TRAIN:
-  epochs: 600
+  epochs: 1200
   train_workers: 16 # data loader workers
   optim: Adam # Adam or SGD
   lr: 0.001
@@ -41,7 +41,7 @@ TRAIN:
   multiplier: 0.5
   momentum: 0.9
   weight_decay: 0.0001
-  save_freq: 16  # also eval_freq
+  save_freq: 8  # also eval_freq
   loss_weight: [1.0, 1.0, 1.0, 1.0] # semantic_loss, offset_norm_loss, offset_dir_loss, score_loss
 
   fg_thresh: 0.75

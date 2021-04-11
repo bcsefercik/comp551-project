@@ -226,6 +226,7 @@ def model_fn_decorator(test=False):
 
     semantic_criterion   = nn.CrossEntropyLoss(weight=class_weights, ignore_index=cfg.ignore_label).cuda()
     regression_criterion = nn.MSELoss(reduction = 'sum').cuda()
+    cos_regression_criterion = nn.CosineSimilarity(dim=0, eps=1e-6)
     score_criterion      = nn.BCELoss(reduction='none').cuda()
 
     def test_model_fn(batch, model, epoch):
@@ -295,7 +296,7 @@ def model_fn_decorator(test=False):
 
         arm_regress = ret['arm_regress']
         loss_inp['arm_regress'] = (arm_regress, poses)
-        if epoch > 590 and not isinstance(poses, int):
+        if epoch > 900 and (epoch % 40 == 0) and not isinstance(poses, int):
             print()
             for i, _ in enumerate(file_names):
                 if not isinstance(arm_regress[i], int):
@@ -329,6 +330,7 @@ def model_fn_decorator(test=False):
         arm_regress, poses = loss_inp['arm_regress']
         batch_size = len(arm_regress)
         regression_loss = 0
+        gamma = 2
 
         for i in range(batch_size):
 
@@ -336,7 +338,13 @@ def model_fn_decorator(test=False):
                 continue
 
             pose = poses[i*7:(i+1) * 7]
-            regression_loss += regression_criterion(arm_regress[i].reshape(1,7),pose.reshape(1,7))
+            pose_reshaped = pose.reshape(1,7)
+            arm_reshaped = arm_regress[i].reshape(1,7)
+            regression_loss += regression_criterion(arm_reshaped[0, :3], pose_reshaped[0, :3])
+            regression_loss += (gamma * (1. - cos_regression_criterion(
+                arm_reshaped[0, 3:].view(-1), 
+                pose_reshaped[0, 3:].view(-1)
+            )))
 
         if type(regression_loss) == int:
             pose = poses[0*7:(0+1)*7]
