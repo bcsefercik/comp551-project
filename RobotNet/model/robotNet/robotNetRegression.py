@@ -1,20 +1,18 @@
-import time
+import sys
+
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 import spconv
 from spconv.modules import SparseModule
-import functools
-from collections import OrderedDict
-import sys
-sys.path.append('../../')  # noqa
-
 import open3d as o3d
 import numpy as np
 
+sys.path.append('../../')  # noqa
 from lib.pointgroup_ops.functions import pointgroup_ops
 from util import utils
 
-import ipdb
 
 class ResidualBlock(SparseModule):
     def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
@@ -113,30 +111,18 @@ class RobotNetRegression(nn.Module):
     def __init__(self, cfg):
         super().__init__()
 
-        input_c        = cfg.input_channel
-        m              = cfg.m
-        classes        = cfg.classes
-        block_reps     = cfg.block_reps
-        block_residual = cfg.block_residual
+        m = cfg.m
 
         self.fc1_hidden = cfg.fc1_hidden
         self.fc2_hidden = cfg.fc2_hidden
         self.regres_dim = cfg.regres_dim
 
-        self.cluster_radius           = cfg.cluster_radius
-        self.cluster_meanActive       = cfg.cluster_meanActive
-        self.cluster_shift_meanActive = cfg.cluster_shift_meanActive
-        self.cluster_npoint_thre      = cfg.cluster_npoint_thre
+        self.max_point_lim = cfg.max_point_lim
+        self.prepare_epochs = cfg.prepare_epochs
 
-        self.score_scale     = cfg.score_scale
-        self.score_fullscale = cfg.score_fullscale
-        self.mode            = cfg.score_mode
-        self.max_point_lim   = cfg.max_point_lim
-        self.prepare_epochs  = cfg.prepare_epochs
-
-        self.pretrain_path   = cfg.pretrain_path
+        self.pretrain_path = cfg.pretrain_path
         self.pretrain_module = cfg.pretrain_module
-        self.fix_module      = cfg.fix_module
+        self.fix_module = cfg.fix_module
 
         self.regression = nn.Sequential(
             nn.Linear(self.max_point_lim*3, cfg.fc1_hidden),
@@ -217,21 +203,14 @@ class RobotNetRegression(nn.Module):
 
 
 def model_fn_decorator(test=False):
-    #### config
+    # config
     from util.config import cfg
 
-    #### criterion
-    weights       = [1, 20.0] #as class distribution
-    class_weights = torch.FloatTensor(weights).cuda()
-
-    semantic_criterion   = nn.CrossEntropyLoss(weight=class_weights, ignore_index=cfg.ignore_label).cuda()
-    regression_criterion = nn.MSELoss(reduction = 'sum').cuda()
+    # criterion
+    regression_criterion = nn.MSELoss(reduction='sum').cuda()
     cos_regression_criterion = nn.CosineSimilarity(dim=0, eps=1e-6)
-    score_criterion      = nn.BCELoss(reduction='none').cuda()
 
     def test_model_fn(batch, model, epoch):
-
-        ############ CHECK THIS FOR ADDING THE REGRESSION LOSS
         coords = batch['locs'].cuda()              # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
         voxel_coords = batch['voxel_locs'].cuda()  # (M, 1 + 3), long, cuda
         p2v_map = batch['p2v_map'].cuda()          # (N), int, cuda
@@ -296,7 +275,7 @@ def model_fn_decorator(test=False):
 
         arm_regress = ret['arm_regress']
         loss_inp['arm_regress'] = (arm_regress, poses)
-        if epoch > 900 and (epoch % 40 == 0) and not isinstance(poses, int):
+        if epoch > 820 and not isinstance(poses, int):
             print()
             for i, _ in enumerate(file_names):
                 if not isinstance(arm_regress[i], int):
@@ -334,15 +313,17 @@ def model_fn_decorator(test=False):
 
         for i in range(batch_size):
 
-            if type(arm_regress[i]) == int: # Continue if this pose has lower than max_lim_point point
+            if type(arm_regress[i]) == int:
                 continue
 
             pose = poses[i*7:(i+1) * 7]
-            pose_reshaped = pose.reshape(1,7)
-            arm_reshaped = arm_regress[i].reshape(1,7)
-            regression_loss += regression_criterion(arm_reshaped[0, :3], pose_reshaped[0, :3])
+            pose_reshaped = pose.reshape(1, 7)
+            arm_reshaped = arm_regress[i].reshape(1, 7)
+            regression_loss += regression_criterion(
+                arm_reshaped[0, :3],
+                pose_reshaped[0, :3])
             regression_loss += (gamma * (1. - cos_regression_criterion(
-                arm_reshaped[0, 3:].view(-1), 
+                arm_reshaped[0, 3:].view(-1),
                 pose_reshaped[0, 3:].view(-1)
             )))
 
@@ -372,9 +353,6 @@ def model_fn_decorator(test=False):
 
         return segmented_scores
 
+    fn = test_model_fn if test else model_fn
 
-    if test:
-        fn = test_model_fn
-    else:
-        fn = model_fn
     return fn
