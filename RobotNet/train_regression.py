@@ -1,10 +1,9 @@
-'''
-RobotNet train.py adapted from PointGroup (Written by Li Jiang)
-'''
+import sys
+import os
+import random
 
 import torch
 import torch.optim as optim
-import time, sys, os, random
 from tensorboardX import SummaryWriter
 import numpy as np
 
