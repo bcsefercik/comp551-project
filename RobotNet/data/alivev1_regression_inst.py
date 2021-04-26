@@ -40,14 +40,14 @@ class Dataset:
             self.batch_size = 1
 
     def trainLoader(self):
-        self.file_names['train'] = glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix))
-        self.file_names['train'] = [fn for fn in self.file_names['train'] if fn[-16::] == '_semantic.pickle' and 'dark' not in fn]
-        self.file_names['train'].sort()
-        self.file_cnt = len(self.file_names['train'])
-        self.batch_cnt = math.ceil(self.file_cnt / self.batch_size)
-        train_set = list(range(len(self.file_names['train'])))
-        self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.trainMerge, num_workers=self.train_workers,
-                                            shuffle=True, sampler=None, drop_last=True, pin_memory=True)
+        self.train_data_loader = self.get_loader(
+                                    'train',
+                                    self.trainMerge,
+                                    num_workers=self.train_workers,
+                                    batch_size=self.batch_size,
+                                    shuffle=True,
+                                    drop_last=True
+                                )
 
     def valLoader(self):
         self.file_names['val'] = glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix))
@@ -68,6 +68,25 @@ class Dataset:
         test_set = list(np.arange(len(self.file_names[self.test_split])))
         self.test_data_loader = DataLoader(test_set, batch_size=1, collate_fn=self.testMerge, num_workers=self.test_workers,
                                            shuffle=False, drop_last=False, pin_memory=True)
+
+    def get_loader(self, kw, collate_fn,
+                   num_workers=1, batch_size=1, shuffle=False, drop_last=False):
+
+        self.file_names[kw] = glob.glob(os.path.join(self.data_root, self.dataset, kw, '*' + self.filename_suffix))
+        self.file_names[kw] = [fn for fn in self.file_names[kw] if fn[-16::] == '_semantic.pickle' and 'dark' not in fn]
+        self.file_names[kw].sort()
+        file_cnt = len(self.file_names[kw])
+        self.batch_cnt = math.ceil(file_cnt / batch_size)
+        current_set = list(range(len(self.file_names[kw])))
+        return DataLoader(
+            current_set,
+            batch_size=batch_size,
+            collate_fn=collate_fn,
+            num_workers=num_workers,
+            shuffle=shuffle,
+            drop_last=drop_last,
+            pin_memory=True
+        )
 
     # Elastic distortion
     def elastic(self, x, gran, mag):
