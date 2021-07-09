@@ -1,6 +1,7 @@
 import sys
 import os
 import random
+import time
 
 import torch
 import torch.optim as optim
@@ -68,7 +69,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
         # backward
         optimizer.zero_grad()
 
-        if loss.grad_fn != None:
+        if loss.grad_fn is not None:
 
             loss.backward()
             optimizer.step()

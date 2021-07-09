@@ -1,10 +1,10 @@
-'''
-RobotNet train.py adapted from PointGroup (Written by Li Jiang)
-'''
+import sys
+import os
+import random
+import time
 
 import torch
 import torch.optim as optim
-import time, sys, os, random
 from tensorboardX import SummaryWriter
 import numpy as np
 
@@ -48,22 +48,25 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
         data_time.update(time.time() - end)
         torch.cuda.empty_cache()
 
-        ##### adjust learning rate
-        if epoch > cfg.prepare_epochs:
-            utils.step_learning_rate(optimizer, cfg.regression_lr, epoch - 1 - cfg.prepare_epochs, cfg.step_epoch, cfg.multiplier, clip=1e-8)
-        else:
-            utils.step_learning_rate(optimizer, cfg.lr, epoch - 1, cfg.step_epoch, cfg.multiplier)
+        utils.step_learning_rate(
+            optimizer,
+            cfg.regression_lr,
+            epoch - 1,
+            cfg.step_epoch,
+            cfg.multiplier,
+            clip=1e-8
+        )
 
-        ##### prepare input and forward
+        # prepare input and forward
         loss, _, visual_dict, meter_dict = model_fn(batch, model, epoch)
 
-        ##### meter_dict
+        # meter_dict
         for k, v in meter_dict.items():
             if k not in am_dict.keys():
                 am_dict[k] = utils.AverageMeter()
             am_dict[k].update(v[0], v[1])
 
-        ##### backward
+        # backward
         optimizer.zero_grad()
 
         if loss.grad_fn is not None:
@@ -71,8 +74,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
             loss.backward()
             optimizer.step()
 
-        ##### time and printpip install flake8-simplify
-
+        # time and print
         current_iter = (epoch - 1) * len(train_loader) + i + 1
         max_iter = cfg.epochs * len(train_loader)
         remain_iter = max_iter - current_iter
@@ -90,7 +92,6 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
             (epoch, cfg.epochs, i + 1, len(train_loader), am_dict['loss'].val, am_dict['loss'].avg,
              data_time.val, data_time.avg, iter_time.val, iter_time.avg, remain_time=remain_time))
         if (i == len(train_loader) - 1): print()
-
 
     logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(epoch, cfg.epochs, am_dict['loss'].avg, time.time() - start_epoch))
 
@@ -144,15 +145,8 @@ if __name__ == '__main__':
     ##### model
     logger.info('=> creating model ...')
 
-    if model_name == 'pointgroup':
-        from model.pointgroup.pointgroup import PointGroup as Network
-        from model.pointgroup.pointgroup import model_fn_decorator
-    elif model_name == 'robotNet':
-        from model.robotNet.robotNet import RobotNet as Network
-        from model.robotNet.robotNet import model_fn_decorator
-    else:
-        print("Error: no model - " + model_name)
-        exit(0)
+    from model.robotNet.robotNetRegressionConv import RobotNetRegressionConv as Network
+    from model.robotNet.robotNetRegressionConv import model_fn_decorator
 
     model = Network(cfg)
 
@@ -164,38 +158,21 @@ if __name__ == '__main__':
     # logger.info(model)
     logger.info('#classifier parameters: {}'.format(sum([x.nelement() for x in model.parameters()])))
 
-    ##### optimizer
+    #  optimizer
     if cfg.optim == 'Adam':
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=cfg.lr)
     elif cfg.optim == 'SGD':
         optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=cfg.lr, momentum=cfg.momentum, weight_decay=cfg.weight_decay)
 
-    ##### model_fn (criterion)
+    #  model_fn (criterion)
     model_fn = model_fn_decorator()
 
-    ##### dataset
-    if cfg.dataset == 'scannetv2':
-        if data_name == 'scannet':
-            import data.scannetv2_inst
-            dataset = data.scannetv2_inst.Dataset()
-            dataset.trainLoader()
-            dataset.valLoader()
-        else:
-            print("Error: no data loader - " + data_name)
-            exit(0)
+    #  dataset
 
-
-    elif cfg.dataset == 'alivev1':
-        if data_name == 'alive':
-            import data.alivev1_inst
-            dataset = data.alivev1_inst.Dataset()
-            dataset.trainLoader()
-            dataset.valLoader()
-        else:
-            print("Error: no data loader - " + data_name)
-            exit(0)
-
-
+    import data.alivev1_regression_inst
+    dataset = data.alivev1_regression_inst.Dataset()
+    dataset.trainLoader()
+    # dataset.valLoader()
 
     ##### resume
     start_epoch = utils.checkpoint_restore(model, cfg.exp_path, cfg.config.split('/')[-1][:-5], use_cuda)      # resume from the latest epoch, or specify the epoch to restore
@@ -204,5 +181,5 @@ if __name__ == '__main__':
     for epoch in range(start_epoch, cfg.epochs + 1):
         train_epoch(dataset.train_data_loader, model, model_fn, optimizer, epoch)
 
-        if utils.is_multiple(epoch, cfg.save_freq) or utils.is_power2(epoch):
-            eval_epoch(dataset.val_data_loader, model, model_fn, epoch)
+        # if utils.is_multiple(epoch, cfg.save_freq) or utils.is_power2(epoch):
+        #     eval_epoch(dataset.val_data_loader, model, model_fn, epoch)

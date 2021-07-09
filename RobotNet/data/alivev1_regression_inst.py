@@ -90,8 +90,10 @@ class Dataset:
         noise = [scipy.ndimage.filters.convolve(n, blur2, mode='constant', cval=0) for n in noise]
         ax = [np.linspace(-(b-1)*gran, (b-1)*gran, b) for b in bb]
         interp = [scipy.interpolate.RegularGridInterpolator(ax, n, bounds_error=0, fill_value=0) for n in noise]
+
         def g(x_):
             return np.hstack([i(x_)[:,None] for i in interp])
+
         return x + g(x) * mag
 
     def getInstanceInfo(self, xyz, instance_label):
@@ -177,6 +179,7 @@ class Dataset:
         poses = list()
         locs = list()
         locs_float = list()
+        feats = list()
         batch_offsets = [0]
 
         self.iteration_cnt += 1
@@ -184,6 +187,20 @@ class Dataset:
 
         for i, idx in enumerate(id):
             semantics, (xyz_origin, rgb, label, instance_label, pose), file_name = self.get_data(idx, kw)
+
+            print()
+            print('========================================')
+            print('xyz_origin', xyz_origin.shape)
+            print('rgb', rgb.shape)
+            print('label', label.shape)
+            print('semantics', semantics.shape)
+            print('instance_label', instance_label.shape)
+            print('xyz_origin', xyz_origin)
+            print('rgb', rgb)
+            print('label', label)
+            print('semantics', semantics)
+            print('instance_label', instance_label)
+
 
             xyz_middle = self.dataAugment(xyz_origin)
             xyz = xyz_middle
@@ -205,6 +222,7 @@ class Dataset:
             poses.append(torch.from_numpy(np.array(pose, dtype=np.float32)))
             locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1))
             locs_float.append(torch.from_numpy(xyz_middle))
+            feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
 
         # merge all the scenes in the batchd
         semantics_scores = torch.cat(semantics_scores, 0)
@@ -212,9 +230,11 @@ class Dataset:
         locs = torch.cat(locs, 0)  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
         locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
         poses = torch.cat(poses, 0)
+        feats = torch.cat(feats, 0)  # float (N, C)
 
         return {
             'semantics': semantics_scores,
+            'feats': feats,
             'locs': locs,
             'locs_float': locs_float,
             'id': id,

@@ -110,7 +110,7 @@ class UBlock(nn.Module):
         return output
 
 
-class RobotNet(nn.Module):
+class RobotNetRegressionConv(nn.Module):
     def __init__(self, cfg):
         super().__init__()
 
@@ -175,6 +175,26 @@ class RobotNet(nn.Module):
             # nn.Linear(self.fc1_hidden, self.regres_dim),
         )
 
+        """
+        Onur:Removing unnecssary parts
+        #### offset
+        self.offset = nn.Sequential(
+            nn.Linear(m, m, bias=True),
+            norm_fn(m),
+            nn.ReLU()
+        )
+
+        self.offset_linear = nn.Linear(m, 3, bias=True)
+
+        #### score branch
+        self.score_unet = UBlock([m, 2*m], norm_fn, 2, block, indice_key_id=1)
+        self.score_outputlayer = spconv.SparseSequential(
+            norm_fn(m),
+            nn.ReLU()
+        )
+        self.score_linear = nn.Linear(m, 1)
+        """
+
         self.apply(self.set_bn_init)
 
         #### fix parameter
@@ -182,6 +202,14 @@ class RobotNet(nn.Module):
         #Our new model
         module_map = {'input_conv': self.input_conv, 'unet': self.unet, 'output_layer': self.output_layer,
                       'linear': self.linear, 'regression': self.regression}
+
+
+        """
+        #Onur: Removing unnessary parts
+        module_map = {'input_conv': self.input_conv, 'unet': self.unet, 'output_layer': self.output_layer,
+                      'linear': self.linear, 'offset': self.offset, 'offset_linear': self.offset_linear,
+                      'score_unet': self.score_unet, 'score_outputlayer': self.score_outputlayer, 'score_linear': self.score_linear}
+        """
 
         for m in self.fix_module:
             mod = module_map[m]
@@ -210,6 +238,7 @@ class RobotNet(nn.Module):
         if classname.find('BatchNorm') != -1:
             m.weight.data.fill_(1.0)
             m.bias.data.fill_(0.0)
+
 
     def clusters_voxelization(self, clusters_idx, clusters_offset, feats, coords, fullscale, scale, mode):
         '''
@@ -260,6 +289,7 @@ class RobotNet(nn.Module):
         voxelization_feats = spconv.SparseConvTensor(out_feats, out_coords.int().cuda(), spatial_shape, int(clusters_idx[-1, 0]) + 1)
 
         return voxelization_feats, inp_map
+
 
     def forward(self, input, input_map, coords, batch_idxs, batch_offsets,file_names,epoch):
 
@@ -327,14 +357,69 @@ class RobotNet(nn.Module):
                     #ind      = np.random.choice(length, self.max_point_lim)
                     #down_pcd = vox_pcd.select_by_index(inds)
 
-                points = np.asarray(down_pcd.points).reshape(-1)
 
-                new_arm_points = torch.from_numpy(points).float().to(device)
-                arm_regress = self.regression(new_arm_points)
+                points       = np.asarray(down_pcd.points).reshape(-1)
+
+                new_arm_points  = torch.from_numpy(points).float().to(device)
+                arm_regress     = self.regression(new_arm_points)
                 arm_regress_list.append(arm_regress)
 
             ret['arm_regress'] = arm_regress_list
 
+        """
+        #Onur: Removing unnessary parts
+        #### offset
+        pt_offsets_feats = self.offset(output_feats)
+        pt_offsets       = self.offset_linear(pt_offsets_feats)   # (N, 3), float32
+        """
+
+        """
+        #Onur: Removing unnessary parts
+        ret['pt_offsets'] = pt_offsets
+        """
+
+        """
+        #Onur: Removing unncessary parts from the model
+        if(epoch > self.prepare_epochs):
+            #### get prooposal clusters
+            object_idxs = torch.nonzero(semantic_preds > -1).view(-1)
+
+            batch_idxs_ = batch_idxs[object_idxs]
+            batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
+            coords_ = coords[object_idxs] #Here
+            pt_offsets_ = pt_offsets[object_idxs]
+
+            semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
+
+            idx_shift, start_len_shift = pointgroup_ops.ballquery_batch_p(coords_ + pt_offsets_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_shift_meanActive)
+            proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx_shift.cpu(), start_len_shift.cpu(), self.cluster_npoint_thre)
+            proposals_idx_shift[:, 1] = object_idxs[proposals_idx_shift[:, 1].long()].int()
+            # proposals_idx_shift: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset_shift: (nProposal + 1), int
+
+            idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_meanActive)
+            proposals_idx, proposals_offset = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
+            proposals_idx[:, 1] = object_idxs[proposals_idx[:, 1].long()].int()
+            # proposals_idx: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (nProposal + 1), int
+
+            proposals_idx_shift[:, 0] += (proposals_offset.size(0) - 1)
+            proposals_offset_shift += proposals_offset[-1]
+            proposals_idx = torch.cat((proposals_idx, proposals_idx_shift), dim=0)
+            proposals_offset = torch.cat((proposals_offset, proposals_offset_shift[1:]))
+
+            #### proposals voxelization again
+            input_feats, inp_map = self.clusters_voxelization(proposals_idx, proposals_offset, output_feats, coords, self.score_fullscale, self.score_scale, self.mode)
+
+            #### score
+            score = self.score_unet(input_feats)
+            score = self.score_outputlayer(score)
+            score_feats = score.features[inp_map.long()] # (sumNPoint, C)
+            score_feats = pointgroup_ops.roipool(score_feats, proposals_offset.cuda())  # (nProposal, C)
+            scores = self.score_linear(score_feats)  # (nProposal, 1)
+
+            ret['proposal_scores'] = (scores, proposals_idx, proposals_offset)
+        """
         return ret
 
 
@@ -446,6 +531,21 @@ def model_fn_decorator(test=False):
 
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
 
+        """
+        #Onur: Removing unnessary parts
+        pt_offsets = ret['pt_offsets']           # (N, 3), float32, cuda
+        """
+
+
+        """
+        Onur: Removing unnessary parts from the model
+        if(epoch > cfg.prepare_epochs):
+            scores, proposals_idx, proposals_offset = ret['proposal_scores']
+            # scores: (nProposal, 1) float, cuda
+            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (nProposal + 1), int, cpu
+        """
+
         loss_inp = {}
         loss_inp['semantic_scores'] = (semantic_scores, labels)
 
@@ -456,6 +556,16 @@ def model_fn_decorator(test=False):
             # print((arm_regress.shape, poses.shape))
             # ipdb.set_trace()
             # print((arm_regress, poses))
+        """
+        #Onur: Removing unnessary parts
+        loss_inp['pt_offsets']      = (pt_offsets, coords_float, instance_info, instance_labels)
+        """
+
+        """
+        Onur: Removing unnessary parts from the model
+        if(epoch > cfg.prepare_epochs):
+            loss_inp['proposal_scores'] = (scores, proposals_idx, proposals_offset, instance_pointnum)
+        """
 
         loss, loss_out, infos = loss_fn(loss_inp, epoch)
 
@@ -463,6 +573,15 @@ def model_fn_decorator(test=False):
         with torch.no_grad():
             preds = {}
             preds['semantic'] = semantic_scores
+
+            """
+            Onur: Removing unnessary parts
+            preds['pt_offsets'] = pt_offsets
+
+            if(epoch > cfg.prepare_epochs):
+                preds['score'] = scores
+                preds['proposals'] = (proposals_idx, proposals_offset)
+            """
 
             visual_dict = {}
             visual_dict['loss'] = loss
@@ -509,13 +628,72 @@ def model_fn_decorator(test=False):
 
             loss_out['regression_loss'] = (regression_loss, batch_size)
 
+        """
+        #Onur: Removing unnessary parts
+        '''offset loss'''
+        pt_offsets, coords, instance_info, instance_labels = loss_inp['pt_offsets']
+        # pt_offsets: (N, 3), float, cuda
+        # coords: (N, 3), float32
+        # instance_info: (N, 9), float32 tensor (meanxyz, minxyz, maxxyz)
+        # instance_labels: (N), long
+
+        gt_offsets       = instance_info[:, 0:3] - coords   # (N, 3)
+        pt_diff          = pt_offsets - gt_offsets   # (N, 3)
+        pt_dist          = torch.sum(torch.abs(pt_diff), dim=-1)   # (N)
+        valid            = (instance_labels != cfg.ignore_label).float()
+        offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
+
+        gt_offsets_norm = torch.norm(gt_offsets, p=2, dim=1)   # (N), float
+        gt_offsets_     = gt_offsets / (gt_offsets_norm.unsqueeze(-1) + 1e-8)
+        pt_offsets_norm = torch.norm(pt_offsets, p=2, dim=1)
+        pt_offsets_     = pt_offsets / (pt_offsets_norm.unsqueeze(-1) + 1e-8)
+        direction_diff  = - (gt_offsets_ * pt_offsets_).sum(-1)   # (N)
+        offset_dir_loss = torch.sum(direction_diff * valid) / (torch.sum(valid) + 1e-6)
+
+        loss_out['offset_norm_loss'] = (offset_norm_loss, valid.sum())
+        loss_out['offset_dir_loss']  = (offset_dir_loss, valid.sum())
+        """
+
+        """
+        #Onur: Removing unnessary parts of the model
+        if (epoch > cfg.prepare_epochs):
+            '''score loss'''
+            scores, proposals_idx, proposals_offset, instance_pointnum = loss_inp['proposal_scores']
+            # scores: (nProposal, 1), float32
+            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (nProposal + 1), int, cpu
+            # instance_pointnum: (total_nInst), int
+
+            ious = pointgroup_ops.get_iou(proposals_idx[:, 1].cuda(), proposals_offset.cuda(), instance_labels, instance_pointnum) # (nProposal, nInstance), float
+            gt_ious, gt_instance_idxs = ious.max(1)  # (nProposal) float, long
+            gt_scores = get_segmented_scores(gt_ious, cfg.fg_thresh, cfg.bg_thresh)
+
+            score_loss = score_criterion(torch.sigmoid(scores.view(-1)), gt_scores)
+            score_loss = score_loss.mean()
+
+            loss_out['score_loss'] = (score_loss, gt_ious.shape[0])
+        """
+
         '''total loss'''
+
 
         if(epoch > cfg.prepare_epochs):
             loss =  cfg.loss_weight[1] * regression_loss
 
         else:
             loss = cfg.loss_weight[0] * semantic_loss
+
+        """
+        #Onur: Removing unnessary parts
+        loss = cfg.loss_weight[0] * semantic_loss + cfg.loss_weight[1] * offset_norm_loss + cfg.loss_weight[2] * offset_dir_loss
+        """
+
+
+        """
+        #Onur: Removing unnessary parts of the model
+        if(epoch > cfg.prepare_epochs):
+            loss += (cfg.loss_weight[3] * score_loss)
+        """
 
         return loss, loss_out, infos
 

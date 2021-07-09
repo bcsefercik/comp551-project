@@ -129,7 +129,13 @@ class RobotNetRegression(nn.Module):
             nn.ReLU(),
             nn.Linear(cfg.fc1_hidden, cfg.fc1_hidden),
             nn.ReLU(),
+            nn.Linear(cfg.fc1_hidden, cfg.fc1_hidden),
+            nn.ReLU(),
+            nn.Linear(cfg.fc1_hidden, cfg.fc1_hidden),
+            nn.ReLU(),
             nn.Linear(cfg.fc1_hidden, cfg.fc2_hidden),
+            nn.ReLU(),
+            nn.Linear(cfg.fc2_hidden, cfg.fc2_hidden),
             nn.ReLU(),
             nn.Linear(cfg.fc2_hidden, cfg.fc2_hidden),
             nn.ReLU(),
@@ -159,7 +165,7 @@ class RobotNetRegression(nn.Module):
             m.weight.data.fill_(1.0)
             m.bias.data.fill_(0.0)
 
-    def forward(self, semantic_scores, coords, batch_idxs, batch_offsets, file_names, epoch):
+    def forward(self, semantic_scores, coords, batch_idxs, feats, batch_offsets, file_names, epoch):
 
         ret = {}
         semantic_preds = semantic_scores.max(1)[1]  # (N), long
@@ -169,12 +175,15 @@ class RobotNetRegression(nn.Module):
         arm_regress_list = list()
         for ii in range(len(batch_offsets)-1):
             batch_coords = coords[batch_offsets[ii]:batch_offsets[ii+1]]
+            batch_feats = feats[batch_offsets[ii]:batch_offsets[ii+1]]
             arm_mask = semantic_preds[batch_offsets[ii]:batch_offsets[ii+1]] == 1
             arm_points = batch_coords[arm_mask]
+            arm_colors = batch_feats[arm_mask]
             device = arm_points.device
 
             # Moving to CPU
             pcd.points = o3d.utility.Vector3dVector(arm_points.cpu().numpy())
+            pcd.colors = o3d.utility.Vector3dVector(arm_colors.cpu().numpy())
             vox_pcd = pcd.voxel_down_sample(voxel_size=0.005)
             length = np.asarray(vox_pcd.points).shape[0]
 
@@ -187,9 +196,20 @@ class RobotNetRegression(nn.Module):
                 arm_regress_list.append(-1)
                 continue
 
-            points = np.asarray(down_pcd.points).reshape(-1)
+            points = np.asarray(down_pcd.points)
+            colors = np.asarray(down_pcd.colors)
+            # points = points.reshape(-1)
 
             new_arm_points = torch.from_numpy(points).float().to(device)
+            new_arm_colors = torch.from_numpy(colors).float().to(device)
+
+            print('color points')
+            print(new_arm_points)
+            print(new_arm_points.shape)
+            print(new_arm_colors)
+            print(new_arm_colors.shape)
+            print('color points end')
+
 
             # Normalization
             new_arm_points = (new_arm_points - new_arm_points.min()) / (new_arm_points.max() - new_arm_points.min())
@@ -238,19 +258,6 @@ def model_fn_decorator(test=False):
             if (epoch > cfg.prepare_epochs):
                 preds['regression'] = ret['arm_regress']
 
-            """
-            Onur: Removing unnessary parts
-            preds['pt_offsets'] = pt_offsets
-            """
-
-            #preds['unet_time'] = ret['unet_time']
-            """
-            Onur: removing unncessary parts
-            if (epoch > cfg.prepare_epochs):
-
-                preds['score'] = scores
-                preds['proposals'] = (proposals_idx, proposals_offset)
-            """
         return preds
 
     def model_fn(batch, model, epoch):
@@ -258,6 +265,7 @@ def model_fn_decorator(test=False):
         file_names = batch['file_names']
         batch_offsets = batch['offsets'].cuda()  # (B + 1), int, cuda
         poses = batch['poses'].cuda().float()  # (B,7), float32, cuda
+        feats = batch['feats'].cuda().float()  # (N, C), float32, cuda
 
         coords = batch['locs'].cuda()  # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
         coords_float = batch['locs_float'].cuda()  # (N, 3), float32, cuda
@@ -266,6 +274,7 @@ def model_fn_decorator(test=False):
             semantic_scores,
             coords_float,
             coords[:, 0].int(),
+            feats,
             batch_offsets,
             file_names,
             epoch
@@ -275,7 +284,7 @@ def model_fn_decorator(test=False):
 
         arm_regress = ret['arm_regress']
         loss_inp['arm_regress'] = (arm_regress, poses)
-        if epoch > 820 and not isinstance(poses, int):
+        if epoch > 220 and not isinstance(poses, int):
             print()
             for i, _ in enumerate(file_names):
                 if not isinstance(arm_regress[i], int):

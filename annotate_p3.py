@@ -52,20 +52,19 @@ class Data:
         self.label_mask  = None
         self.pose        = None
 
-
     def convert_to_pointgroup(self):
         '''
         Converts the current data to pointgroup data
         '''
-        xyz            = np.asarray(self.pcd.points)
-        rgb            = np.asarray(self.pcd.colors)
-        rgb[:,0]       = preprocessing.minmax_scale(rgb[:,0], feature_range = (-1,1), axis = 0)
-        rgb[:,1]       = preprocessing.minmax_scale(rgb[:,1], feature_range = (-1,1), axis = 0)
-        rgb[:,2]       = preprocessing.minmax_scale(rgb[:,2], feature_range = (-1,1), axis = 0)
-        label          = np.zeros(len(self.pcd.points))
+        xyz = np.asarray(self.pcd.points)
+        rgb = np.asarray(self.pcd.colors)
+        rgb[:, 0] = preprocessing.minmax_scale(rgb[:, 0], feature_range=(-1, 1), axis=0)
+        rgb[:, 1] = preprocessing.minmax_scale(rgb[:, 1], feature_range=(-1, 1), axis=0)
+        rgb[:, 2] = preprocessing.minmax_scale(rgb[:, 2], feature_range=(-1, 1), axis=0)
+        label = np.zeros(len(self.pcd.points))
         label[self.arm_ind] = 1
         instance_label = np.zeros(len(self.pcd.points))
-        return [xyz,rgb,label,instance_label]
+        return [xyz, rgb, label, instance_label]
 
     def convert_to_robotNet(self):
 

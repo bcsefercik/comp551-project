@@ -126,7 +126,6 @@ class Dataset:
 
         return instance_num, {"instance_info": instance_info, "instance_pointnum": instance_pointnum}
 
-
     def dataAugment(self, xyz, jitter=False, flip=False, rot=False):
         m = np.eye(3)
         if jitter:
@@ -138,13 +137,12 @@ class Dataset:
             m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
         return np.matmul(xyz, m)
 
-
     def crop(self, xyz):
         '''
         :param xyz: (n, 3) >= 0
         '''
         xyz_offset = xyz.copy()
-        valid_idxs = (xyz_offset.min(1) >= 0)
+        valid_idxs = (xyz_offset.min(1) >= 0)  # all xyz must be positive
         assert valid_idxs.sum() == xyz.shape[0]
 
         full_scale = np.array([self.full_scale[1]] * 3)
@@ -157,7 +155,6 @@ class Dataset:
 
         return xyz_offset, valid_idxs
 
-
     def getCroppedInstLabel(self, instance_label, valid_idxs):
         instance_label = instance_label[valid_idxs]
         j = 0
@@ -167,11 +164,10 @@ class Dataset:
             j += 1
         return instance_label
 
-    def get_data(self,id,data_type):
+    def get_data(self, id, data_type):
         curr_file_name = self.file_names[data_type][id]
-        filehandler = open(curr_file_name, 'rb')
-        x = pickle.load(filehandler, encoding='bytes')
-        filehandler.close()
+        with open(curr_file_name, 'rb') as filehandler:
+            x = pickle.load(filehandler, encoding='bytes')
         return x, curr_file_name
 
     def trainMerge(self, id):
@@ -188,25 +184,36 @@ class Dataset:
         total_inst_num    = 0
 
         self.iteration_cnt += 1
-        self.epoch          = math.ceil(self.iteration_cnt/self.batch_cnt)
-        augment             = self.epoch  < self.prepare_epochs
-        self.scale          = self.scale if augment else 1
+        self.epoch = math.ceil(self.iteration_cnt/self.batch_cnt)
+        augment = self.epoch  < self.prepare_epochs
+        self.scale = self.scale if augment else 1
+        print('scale:', self.scale)
 
         for i, idx in enumerate(id):
-            (xyz_origin, rgb, label, instance_label,pose),file_name = self.get_data(idx,'train')
+            (xyz_origin, rgb, label, instance_label, pose), file_name = self.get_data(idx,'train')
             pose = np.array(pose)
+            # print()
+            print('========================================')
+            print('xyz_origin', xyz_origin.shape)
+            print('xyz_origin', xyz_origin)
+            # print('rgb', rgb.shape)
+            # print('rgb', rgb)
+            # print('label', label.shape)
+            # print('label', label)
+            # print('instance_label', instance_label.shape)
+            # print('instance_label', instance_label)
+
             #print('Batch Scene No: ', i, 'Size is: ', xyz_origin.shape)
 
             ### jitter / flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, augment, augment, augment)
             ### scale
-            xyz        = xyz_middle * self.scale
+            xyz = xyz_middle * self.scale
 
             #xyz is xyz_midde scaled
 
-
             ### elastic (No elastic distortion for regression)
-            if augment: 
+            if augment:
                 xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
                 xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
 
@@ -224,16 +231,25 @@ class Dataset:
 
             ### get instance information
             inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32))
-            inst_info            = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-            inst_pointnum        = inst_infos["instance_pointnum"]   # (nInst), list
+            inst_info = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+            inst_pointnum = inst_infos["instance_pointnum"]   # (nInst), list
 
             instance_label[np.where(instance_label != -100)] += total_inst_num
-            total_inst_num                                   += inst_num
+            total_inst_num += inst_num
 
-            ### merge the scene to the batch
+            # merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
 
-            locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1)) #Cok garip birsey
+            locs.append(
+                torch.cat(
+                    [
+                        torch.LongTensor(xyz.shape[0], 1).fill_(i),
+                        torch.from_numpy(xyz).long()
+                    ],
+                    1
+                )
+            )  # converts xyz into long, inserts batch id to 0th col
+
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
             poses.append(torch.from_numpy(np.array(pose, dtype=np.float32)))
@@ -247,14 +263,16 @@ class Dataset:
         ### merge all the scenes in the batchd
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
 
-        locs        = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+        locs = torch.cat(locs, 0)  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+        print('locs', locs.shape)
+        print('locs', locs)
         #locs_float = torch.cat(locs_float, 0).to(torch.float64) # float (N, 3)
         locs_float  = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
 
-        feats           = torch.cat(feats, 0)                              # float (N, C)
+        feats           = torch.cat(feats, 0)  # float (N, C)
         poses           = torch.cat(poses,0)
-        labels          = torch.cat(labels, 0).long()                     # long (N)
-        instance_labels = torch.cat(instance_labels, 0).long()   # long (N)
+        labels          = torch.cat(labels, 0).long()  # long (N)
+        instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
 
         instance_infos    = torch.cat(instance_infos, 0).to(torch.float32)       # float (N, 9) (meanxyz, minxyz, maxxyz)
         instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
@@ -263,6 +281,21 @@ class Dataset:
 
         ### voxelize
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode) #This is not giving us sequential voxels in point space...
+        # print('gg')
+        print('=====================')
+        print('feats (rgb)', feats.shape)
+        print('feats (rgb)', feats)
+        print('locs', locs.shape)
+        print('locs', locs)
+        print('locs_float', locs_float.shape)
+        print('locs_float', locs_float)
+        print('voxel_locs', voxel_locs.shape)
+        print('voxel_locs', voxel_locs)
+        print('p2v_map', p2v_map.shape)
+        print('p2v_map', p2v_map)
+        print('v2p_map', v2p_map.shape)
+        print('v2p_map', v2p_map)
+        print('......................')
         #p2v_map: N points -> M voxels (Use it with p2v_map.cpu().numpy(), its the combination of #batch_size scenes)
         #v2p_map: M_voxels -> N points (Use it with v2p_map.cpu().numpy(), its the combination of #batch_size scenes)
 
@@ -287,7 +320,7 @@ class Dataset:
         instance_pointnum = []  # (total_nInst), int
 
         augment             = self.epoch  < self.prepare_epochs
-        
+
 
         for i, idx in enumerate(id):
             (xyz_origin, rgb, label, instance_label, pose),file_name = self.get_data(idx,'val')
@@ -388,7 +421,7 @@ class Dataset:
 
 
             ### elastic (No elastic distortion for regression)
-            if augment: 
+            if augment:
                 xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
                 xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
 

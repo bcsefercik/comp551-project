@@ -3,7 +3,7 @@ GENERAL:
   manual_seed: 123
   model_dir: model/pointgroup/pointgroup.py
   dataset_dir: data/alivev1_inst.py
-  exp_path: 'exp/alivev1/pointgroup/pointgroup_alive/regression/trial_new_6'
+  exp_path: 'exp/alivev1/pointgroup/pointgroup_alive/regression/trial_n1e'
 
 DATA:
   data_root: dataset
@@ -37,11 +37,11 @@ TRAIN:
   optim: Adam # Adam or SGD
   lr: 0.001
   regression_lr: 0.001
-  step_epoch: 80 #Should same with epochs
+  step_epoch: 120 #Should same with epochs
   multiplier: 0.5
   momentum: 0.9
   weight_decay: 0.0001
-  save_freq: 8  # also eval_freq
+  save_freq: 32  # also eval_freq
   loss_weight: [1.0, 1.0, 1.0, 1.0] # semantic_loss, offset_norm_loss, offset_dir_loss, score_loss
 
   fg_thresh: 0.75
