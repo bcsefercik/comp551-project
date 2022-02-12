@@ -1,3 +1,5 @@
+import argparse
+
 import sensor_msgs.point_cloud2 as pc2
 import rospy
 import pickle
@@ -187,11 +189,15 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 
 if __name__ == "__main__":
-    common_path = 'tmp/'
-    input_path = common_path + 'perception_ee_poses_wrt_kinect.pickle'
+    parser = argparse.ArgumentParser(description='Convert background bag playback to pickle.')
+    parser.add_argument('--infile', default='tmp/ee.pickle', type=str)
+    parser.add_argument('--outfolder', default='tmp', type=str)
+
+    args = parser.parse_args()
+    input_path = args.infile
     input_file = open(input_path,'rb')
 
-    output_folder = common_path + 'pcd_ee/'
+    output_folder = args.outfolder + '/'
 
     i = 0
     while True:

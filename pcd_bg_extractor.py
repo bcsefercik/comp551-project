@@ -1,3 +1,5 @@
+import argparse
+
 import sensor_msgs.point_cloud2 as pc2
 import rospy
 import pickle
@@ -186,15 +188,18 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Convert background bag playback to pickle.')
+    parser.add_argument('--infile', default='tmp/background.pickle', type=str)
+    parser.add_argument('--outfolder', default='tmp', type=str)
+    parser.add_argument('--outfile', default='background', type=str)
 
-    input_folder = 'tmp/'
-    input_file   = 'background'
-    input_ext    = '.pickle'
-    input_full   = input_folder + input_file + input_ext
+    args = parser.parse_args()
+
+    input_full   = args.infile
     input_file   = open(input_full,'rb')
 
-    output_folder   = input_folder
-    output_file     = 'background'
+    output_folder   = args.outfolder
+    output_file     = args.outfile
     output_ext      = '.pcd'
 
     i = 1
@@ -202,7 +207,7 @@ if __name__ == "__main__":
         try:
             #point_cloud,_ = pickle.load(input_file)
             point_cloud = pickle.load(input_file)
-            output_full = output_folder + output_file + '_' + str(i) + output_ext
+            output_full = output_folder + '/' + output_file + '_' + str(i) + output_ext
             print("Output: ", output_full)
             pcl_obj = write_pcd(output_full, point_cloud, True)
             del point_cloud
