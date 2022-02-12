@@ -71,7 +71,7 @@ while robot moves.
 
 * Accessing the data
 
-1. Run the depth_registered_to_pcl.py to get the pcl data, at this step you have the pcl data and you can look at them using
+1. Run the pcd_bg_extractor.py to get the pcl data, at this step you have the pcl data and you can look at them using
     pcl_viewer for making them numpy array please refer to second step
 
 2. In order to make the pcl to numpy array please use pcl_to_numpy.py. 

@@ -281,6 +281,7 @@ class Annotator:
             print('Sample no: ', i, ' ' ,len(data.arm_ind))
 
             if len(data.arm_ind) < 256:
+                print("|>No arm data")
                 continue
             single_pose_data = np.load(folder_name + files[i][:-4] + '.npy', allow_pickle = True)
             # data.pose = pose_data[i]
@@ -357,7 +358,7 @@ if __name__ == "__main__":
     reconstruct = False
     verbose = True
 
-    common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/half_light/'
+    common_path = 'tmp/'
 
     # common_path = "/home/bcs/Desktop/MSc/repos/comp551_project/dataset/new/p1/half_light/"
 
@@ -376,7 +377,7 @@ if __name__ == "__main__":
         ann.annotate_batch(
             folder_name=file_dir,
             output_dir=output_dir,
-            percentages=[0.6, 0.2, 0.2],
+            percentages=[0.85, 0.1, 0.05],
             conversion_type='robotNet',
             pose_data=poses,
             write_pcd=True

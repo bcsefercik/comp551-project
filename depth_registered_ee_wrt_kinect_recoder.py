@@ -6,7 +6,7 @@ from roslib import message
 import pickle
 
 
-output_folder = '_gitignore/Dataset/p1/dark/'
+output_folder = 'tmp/'
 output_file   = 'perception_ee_poses_wrt_kinect'
 output_ext    = '.pickle'
 output_full   = output_folder + output_file + output_ext
@@ -24,6 +24,7 @@ def callback(depth_registered_sub, ee_wrt_kinect_state_sub):
 rospy.init_node('depth_registered_joint_state_recorder')
 depth_registered_sub = message_filters.Subscriber('/camera/depth_registered/points', PointCloud2)
 ee_wrt_kinect_state_sub = message_filters.Subscriber('/robot/ee_pose_wrt_kinect', PoseStamped)
+# ee_wrt_kinect_state_sub = message_filters.Subscriber('/camera/depth_registered/points', PointCloud2)
 print('Starting...')
 ts = message_filters.ApproximateTimeSynchronizer([depth_registered_sub, ee_wrt_kinect_state_sub], queue_size=100, slop=0.1)
 ts.registerCallback(callback)

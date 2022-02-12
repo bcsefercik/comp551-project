@@ -187,7 +187,7 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 
 if __name__ == "__main__":
-    common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/dark/'
+    common_path = 'tmp/'
     input_path = common_path + 'perception_ee_poses_wrt_kinect.pickle'
     input_file = open(input_path,'rb')
 
@@ -204,7 +204,7 @@ if __name__ == "__main__":
             ee_full  = output_folder + str(i)
             print("Output: ", pcd_full)
             pcl_obj = write_pcd(pcd_full, point_cloud, True)
-            ee_pose = np.array([ee_pose.pose.position.x,ee_pose.pose.position.y,ee_pose.pose.position.z,ee_pose.pose.orientation.x,ee_pose.pose.orientation.y,ee_pose.pose.orientation.z,ee_pose.pose.orientation.w],dtype=np.float128)
+            ee_pose = np.array([ee_pose.pose.position.x,ee_pose.pose.position.y,ee_pose.pose.position.z,ee_pose.pose.orientation.x,ee_pose.pose.orientation.y,ee_pose.pose.orientation.z,ee_pose.pose.orientation.w],dtype=np.float32)
             np.save(ee_full, ee_pose)
             del point_cloud
         except EOFError:

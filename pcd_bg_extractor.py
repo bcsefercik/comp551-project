@@ -187,7 +187,7 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 if __name__ == "__main__":
 
-    input_folder = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/dark/background/pcd/'
+    input_folder = 'tmp/'
     input_file   = 'background'
     input_ext    = '.pickle'
     input_full   = input_folder + input_file + input_ext

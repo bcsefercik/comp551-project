@@ -1,6 +1,11 @@
 # Specific folders
 venv/*
 dataset/*
+tmp/
+.vscode/
+*.bag
+*.npy
+*.pickle
 
 _gitignore
 PointGroup/dataset/

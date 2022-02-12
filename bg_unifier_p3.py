@@ -9,10 +9,10 @@ from os import listdir
 from os.path import isfile, join
 import open3d as o3d
 import numpy as np
-from depth_registered_to_pcl import write_pcd
+from pcd_bg_extractor import write_pcd
 
 
-common_path = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p1/dark/'
+common_path = 'tmp/'
 
 path = common_path + 'background/pcd'
 file_names = [f for f in listdir(path) if isfile(join(path, f)) and f[-4:] == ".pcd"]

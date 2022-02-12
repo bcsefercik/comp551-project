@@ -13,8 +13,9 @@ import json
 import math
 import argparse
 
-development_path   = '/home/' + user_name + '/Desktop/development'
-robot_control_path = '/home/' + user_name + '/Desktop/development/Tubitak'
+development_path   = '../'
+robot_control_path = '../Tubitak'
+# robot_control_path = '../'
 
 sys.path.insert(0, robot_control_path)
 sys.path.insert(0, development_path)
@@ -30,10 +31,10 @@ if does_this_machine_has_ros == True:
     from geometry_msgs.msg import Pose, PoseStamped
 
 
-file_name = '/home/onurberk/Desktop/development/comp551-project/_gitignore/Dataset/p2/joint_states.npy'
+file_name = 'joint_states.npy'
 
 joint_states = np.load(file_name, allow_pickle=True)
-print(joint_states.shape)
+print("shape:", joint_states.shape)
 
 robot = Agent(sim=False, data_type='poses')
 robot.initialize_robot()
