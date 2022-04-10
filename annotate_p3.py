@@ -58,9 +58,9 @@ class Data:
         '''
         xyz = np.asarray(self.pcd.points)
         rgb = np.asarray(self.pcd.colors)
-        rgb[:, 0] = preprocessing.minmax_scale(rgb[:, 0], feature_range=(-1, 1), axis=0)
-        rgb[:, 1] = preprocessing.minmax_scale(rgb[:, 1], feature_range=(-1, 1), axis=0)
-        rgb[:, 2] = preprocessing.minmax_scale(rgb[:, 2], feature_range=(-1, 1), axis=0)
+        # rgb[:, 0] = preprocessing.minmax_scale(rgb[:, 0], feature_range=(-1, 1), axis=0)
+        # rgb[:, 1] = preprocessing.minmax_scale(rgb[:, 1], feature_range=(-1, 1), axis=0)
+        # rgb[:, 2] = preprocessing.minmax_scale(rgb[:, 2], feature_range=(-1, 1), axis=0)
         label = np.zeros(len(self.pcd.points))
         label[self.arm_ind] = 1
         instance_label = np.zeros(len(self.pcd.points))
@@ -73,9 +73,9 @@ class Data:
         '''
         xyz            = np.asarray(self.pcd.points)
         rgb            = np.asarray(self.pcd.colors)
-        rgb[:,0]       = preprocessing.minmax_scale(rgb[:,0], feature_range = (-1,1), axis = 0)
-        rgb[:,1]       = preprocessing.minmax_scale(rgb[:,1], feature_range = (-1,1), axis = 0)
-        rgb[:,2]       = preprocessing.minmax_scale(rgb[:,2], feature_range = (-1,1), axis = 0)
+        # rgb[:,0]       = preprocessing.minmax_scale(rgb[:,0], feature_range = (-1,1), axis = 0)
+        # rgb[:,1]       = preprocessing.minmax_scale(rgb[:,1], feature_range = (-1,1), axis = 0)
+        # rgb[:,2]       = preprocessing.minmax_scale(rgb[:,2], feature_range = (-1,1), axis = 0)
         label          = np.zeros(len(self.pcd.points))
         label[self.arm_ind] = 1
         instance_label = np.zeros(len(self.pcd.points))
