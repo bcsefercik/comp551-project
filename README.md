@@ -23,7 +23,7 @@ The steps for that described below:
     ```roslaunch lfd_data lfd_nodes.launch```
 
 3. Start to rosbag to record:
-    ```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info  /robot/ee_pose_wrt_kinect```
+    ```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info  /robot/ee_pose_wrt_kinect /robot/joint_angles /robot/joint_states```
 
 * Recording (Kinect) (AKA Background)
 1. Start roscore, and then run:
@@ -42,7 +42,7 @@ The steps for that described below:
 2. Close any running freenect driver and re-run as:
     ```roslaunch freenect_launch freenect.launch load_driver:=false```
 
-3. If you want to visualization: 
+3. If you want to viz: 
     run rviz, create a PointCloud2 display of the topic /camera/depth_registered/points with the fixed frame 
     /camera_link 
 
