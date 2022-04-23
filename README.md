@@ -23,7 +23,7 @@ The steps for that described below:
     ```roslaunch lfd_data lfd_nodes.launch```
 
 3. Start to rosbag to record:
-    ```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info  /robot/ee_pose_wrt_kinect /robot/joint_angles /robot/joint_states```
+    ```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info  /robot/ee_pose_wrt_kinect /robot/joint_angles /robot/joint_states2```
 
 * Recording (Kinect) (AKA Background)
 1. Start roscore, and then run:
