@@ -50,7 +50,7 @@ The steps for that described below:
     ```rostopic hz /camera/depth_registered/points```
 
 5. finally play the bag file:
-    ```rosbag play --clock kinect.bag --rate 0.01```
+    ```rosbag play --rate 0.5 --clock kinect.bag```
 
     This way you can access the points generated in topic /camera/depth_registered/points which has the type of PointCloud2
     and containing both RGB and XYZ information. In order to process the data please refer to another function.
