@@ -189,7 +189,7 @@ def write_pcd(filename,  pointcloud, overwrite, viewpoint=None,
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Convert background bag playback to pickle.')
+    parser = argparse.ArgumentParser(description='.')
     parser.add_argument('--infile', default='tmp/ee.pickle', type=str)
     parser.add_argument('--outfolder', default='tmp', type=str)
     parser.add_argument('--startid', default=1, type=int)

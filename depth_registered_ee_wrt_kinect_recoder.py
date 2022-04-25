@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Convert background bag playback to pickle.')
     parser.add_argument('--outfolder', default='tmp', type=str)
-    parser.add_argument('--outfile', default='background', type=str)
+    parser.add_argument('--outfile', default='ee', type=str)
 
     args = parser.parse_args()
 

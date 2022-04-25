@@ -337,20 +337,20 @@ class Annotator:
         '''
 
         dists     = np.asarray(target_cloud.compute_point_cloud_distance(bg_pcl))
-        arm_mask  = dists > removal_th
+        roi_mask  = dists > removal_th
         # ipdb.set_trace()
 
         if clip_depth:
 
             points    = np.asarray(target_cloud.points)
-            arm_mask = np.logical_and(points[:, 0] < 0.39, arm_mask)  # x
-            arm_mask = np.logical_and(points[:, 0] > -0.52, arm_mask)
-            arm_mask = np.logical_and(points[:, 1] < 0.27, arm_mask)  # y
-            # # # arm_mask = np.logical_and(points[:, 1] > -0.02, arm_mask)
-            arm_mask = np.logical_and(points[:, 2] < 1.15, arm_mask)  # z
-            arm_mask = np.logical_and(points[:, 2] > 0.3, arm_mask)
+            roi_mask = np.logical_and(points[:, 0] < 0.43, roi_mask)  # x
+            roi_mask = np.logical_and(points[:, 0] > -0.6, roi_mask)
+            roi_mask = np.logical_and(points[:, 1] < 0.3, roi_mask)  # y
+            # # # roi_mask = np.logical_and(points[:, 1] > -0.02, roi_mask)
+            roi_mask = np.logical_and(points[:, 2] < 1.2, roi_mask)  # z
+            roi_mask = np.logical_and(points[:, 2] > 0, roi_mask)
 
-        return  np.where(arm_mask == True)[0], np.where(arm_mask == False)[0], arm_mask
+        return  np.where(roi_mask == True)[0], np.where(roi_mask == False)[0], roi_mask
 
 
 if __name__ == "__main__":

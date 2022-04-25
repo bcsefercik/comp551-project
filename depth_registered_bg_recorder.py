@@ -34,14 +34,14 @@ def listener():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Convert background bag playback to pickle.')
-    parser.add_argument('--folder', default=output_folder, type=str)
-    parser.add_argument('--file', default=output_file, type=str)
+    parser.add_argument('--outfolder', default=output_folder, type=str)
+    parser.add_argument('--outfile', default=output_file, type=str)
 
     args = parser.parse_args()
 
-    output_folder = args.folder
-    output_file = args.file
+    output_folder = args.outfolder
+    output_file = args.outfile
     output_full   = output_folder + '/' + output_file + output_ext
     output = open(output_full,'wb')
-    
+
     listener()
