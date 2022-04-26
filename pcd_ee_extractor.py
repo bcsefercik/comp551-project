@@ -1,4 +1,5 @@
 import argparse
+import pdb
 
 import sensor_msgs.point_cloud2 as pc2
 import rospy
@@ -197,22 +198,46 @@ if __name__ == "__main__":
     args = parser.parse_args()
     input_path = args.infile
     input_file = open(input_path,'rb')
+    input_file_seq2ja = open(input_path.replace(".pickle", "_seq2ja.pickle"), 'rb')
+    input_file_ja2jointangle = open(input_path.replace(".pickle", "_ja2jointangle.pickle"),'rb')
 
     output_folder = args.outfolder + '/'
+
+    seq2ja = dict()
+    ja2jointangles = dict()
+
+    while True:
+        try:
+            seq,jaid = pickle.load(input_file_seq2ja)
+            seq2ja[seq] = jaid
+        except EOFError:
+            print('Created seq2ja')
+            break
+
+    while True:
+        try:
+            jaid, joint_angles = pickle.load(input_file_ja2jointangle)
+            ja2jointangles[jaid] = joint_angles
+        except EOFError:
+            print('Created ja2jointangle')
+            break
 
     i = args.startid - 1
     while True:
         try:
             i += 1
             point_cloud,ee_pose = pickle.load(input_file)
+            joint_angles = np.array(ja2jointangles[seq2ja[ee_pose.header.seq]].data)
             # if i %100 != 0:
             #    continue
             pcd_full = output_folder + str(i) + '.pcd'
             ee_full  = output_folder + str(i)
+            ja_full  = output_folder + str(i) + '_joint_angles'
             print("Output: ", pcd_full)
             pcl_obj = write_pcd(pcd_full, point_cloud, True)
             ee_pose = np.array([ee_pose.pose.position.x,ee_pose.pose.position.y,ee_pose.pose.position.z,ee_pose.pose.orientation.x,ee_pose.pose.orientation.y,ee_pose.pose.orientation.z,ee_pose.pose.orientation.w],dtype=np.float32)
             np.save(ee_full, ee_pose)
+            np.save(ja_full, joint_angles)
             del point_cloud
         except EOFError:
             print("Done...")
