@@ -32,6 +32,12 @@ The steps for that described below:
 2. Start to rosbag to record:
     ```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info ```
 
+* Collect Data for Prediction
+```rosbag record camera/depth_registered/image_raw camera/depth_registered/camera_info camera/rgb/image_raw camera/rgb/camera_info  /robot/ee_pose_wrt_kinect /robot/ee_pose /robot/joint_angles /robot/joint_states2 /franka_state_controller/joint_states```
+
+
+
+
 * Playback (Recorded Movement)
 
 1. Please run the replay.py
