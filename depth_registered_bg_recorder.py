@@ -11,6 +11,9 @@ from roslib import message
 import pickle
 from sensor_msgs.msg import PointCloud2
 
+from ros_utils import get_points_and_colors
+import pdb
+
 
 output_folder = 'tmp'
 output_file   = 'background'
@@ -24,6 +27,9 @@ def callback(data):
     global i
     print('Frame No: ',i)
     i = i + 1
+    # points, colors = get_points_and_colors(data)
+    # pdb.set_trace()
+
     pickle.dump(data,output)
 
 def listener():
