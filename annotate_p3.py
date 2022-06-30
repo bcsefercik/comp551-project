@@ -90,6 +90,7 @@ class Data:
         self.arm_rec_pcd = None
         self.label_mask = None
         self.pose = None
+        self.robot2ee_pose = None
         self.joint_angles = None
 
     def convert_to_pointgroup(self):
@@ -130,6 +131,7 @@ class Data:
                 "labels": label,
                 "instance_labels": instance_label,
                 "pose": pose,
+                "robot2ee_pose": self.robot2ee_pose,
                 "joint_angles": self.joint_angles,
             }
         else:
@@ -377,10 +379,17 @@ class Annotator:
             )
             # data.pose = pose_data[i]
             data.pose = single_pose_data
-            joint_angles = np.load(
-                folder_name + files[i][:-4] + "_joint_angles.npy", allow_pickle=True
-            )
-            data.joint_angles = joint_angles
+            if os.path.isfile(folder_name + files[i][:-4] + "_joint_angles.npy"):
+                joint_angles = np.load(
+                    folder_name + files[i][:-4] + "_joint_angles.npy", allow_pickle=True
+                )
+                data.joint_angles = joint_angles
+
+            if os.path.isfile(folder_name + files[i][:-4] + "_robot2ee_pose.npy"):
+                data.robot2ee_pose  = np.load(
+                    folder_name + files[i][:-4] + "_robot2ee_pose.npy", allow_pickle=True
+                )
+
             # data.pose = self.pose_to_arr(data.pose)
             data.update_arm_pcl_from_ind()
 
