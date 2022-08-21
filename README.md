@@ -8,11 +8,28 @@ Please refer to the readme inside the pointgroup
 
 We can combine multiple pointcloud pcd files into one big pointcloud.The code also allows you to downsample.
 
+# Zed2 recording
+
 # Kinect Recording/Playback
 
 There are possible ways to record the kinect data, first one, the hardest, memory efficient
 and faster method is to save the four different topic and generate the depth data later.
 The steps for that described below:
+
+1. Start roscore, and then run:
+    ```roslaunch freenect_launch freenect.launch load_driver:=false```
+    Play some rosbag to not get error from lfd
+
+2. Start Lfd to record robot end effector
+
+    ```roslaunch lfd_data lfd_nodes.launch```
+    
+3.
+    ```roslaunch zed_wrapper zed2.launch```
+    
+4.
+    ```rosbag record zed2/zed_node/depth/camera_info zed2/zed_node/rgb/camera_info zed2/zed_node/point_cloud/cloud_registered /robot/ee_pose_wrt_kinect /robot/ee_pose /robot/joint_angles /franka_state_controller/joint_states```
+
 
 * Recording (Robot EE wrt Kinect and Kinect) (AKA Robot EE + PointCloud)
 1. Start roscore, and then run:
